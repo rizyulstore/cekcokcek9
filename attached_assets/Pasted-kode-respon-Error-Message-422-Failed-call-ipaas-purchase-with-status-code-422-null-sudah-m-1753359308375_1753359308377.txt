@@ -1,0 +1,10 @@
+kode respon  Error Message: 422 -> Failed call ipaas purchase, with status code:422 : null,  sudah muncul tetapi kenpa masih di coba terus jika sudah respon 422 maka di anggap berhasil untuk 
+XLUNLITURBOSUPERXC_PULSA atau XLUNLITURBOPREMIUMXC_PULSA jika packagecode ini bdb392a7aa12b21851960b7e7d54af2c dan XL_XC1PLUS1DISC_PULSA tidak perlu menunngu code 422 dan beri notif saat pemeblian berlangsung jagan reload web 
+jika di reload oleh user maka proses di stop semuanya
+
+INFO:root:Using payment method: PULSA
+INFO:root:API Response Status: 200, Body: {"statusCode":200,"status":false,"message":"Terjadi kesalahan saat memproses pembelian paket ini. Silakan coba lagi dan pastikan Anda telah membaca deskripsi serta memenuhi syarat dan ketentuan paket! ( Error Message: 422 -> Failed call ipaas purchase, with status code:422 : null,  )","data":{"err":"{\"xdata\":\"yxWNw8Nbkgl-wLdLaGWOW5jyyQ4SG1UfEY3EF0NSpcIo92UgVRcBmXs9MigrtJAgZC0VjwT0ulR5JGk5nsyv-qMnJQm1uaDDhYjhrmK_CICwVTGE0RX_utW3akcrISYireHS7sT3nwg632FPbRKuN7KaVxfqWzwrzBMPse1OKlh2hZ8YVlHnXRvC4HNx0SQ0_lT_9t9xuI3j26OB-VbwfXdoXyfNrDMzWz9Q1cwE5To=\",\"xtime\":1753358804}\n"}}
+INFO:root:Parsed JSON response: {'statusCode': 200, 'status': False, 'message': 'Terjadi kesalahan saat memproses pembelian paket ini. Silakan coba lagi dan pastikan Anda telah membaca deskripsi serta memenuhi syarat dan ketentuan paket! ( Error Message: 422 -> Failed call ipaas purchase, with status code:422 : null,  )', 'data': {'err': '{"xdata":"yxWNw8Nbkgl-wLdLaGWOW5jyyQ4SG1UfEY3EF0NSpcIo92UgVRcBmXs9MigrtJAgZC0VjwT0ulR5JGk5nsyv-qMnJQm1uaDDhYjhrmK_CICwVTGE0RX_utW3akcrISYireHS7sT3nwg632FPbRKuN7KaVxfqWzwrzBMPse1OKlh2hZ8YVlHnXRvC4HNx0SQ0_lT_9t9xuI3j26OB-VbwfXdoXyfNrDMzWz9Q1cwE5To=","xtime":1753358804}\n'}}
+ERROR:root:Purchase failed: Terjadi kesalahan saat memproses pembelian paket ini. Silakan coba lagi dan pastikan Anda telah membaca deskripsi serta memenuhi syarat dan ketentuan paket! ( Error Message: 422 -> Failed call ipaas purchase, with status code:422 : null,  )
+INFO:root:Main package response: 
+INFO:root:Main package attempt 3 failed, waiting 35 seconds...

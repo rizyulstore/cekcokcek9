@@ -1,0 +1,87 @@
+   function updateSummary() {
+        const selectedMain = document.querySelector('.main-package-radio:checked');
+
+        selectedPackagesList.innerHTML = '';
+        let totalPrice = 0;
+
+        if (selectedMain) {
+            const mainPrice = parseFloat(selectedMain.dataset.price);
+            const addonPrice = parseFloat(selectedMain.dataset.addonPrice || 6000);
+            totalPrice = mainPrice + addonPrice;
+
+            // Get package name
+            const packageLabel = selectedMain.closest('.card-body').querySelector('h6').textContent.trim();
+
+            selectedPackagesList.innerHTML = `
+                <div class="d-flex justify-content-between mb-2">
+                    <span>${packageLabel}</span>
+                    <span>${formatCurrency(mainPrice)}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>🎁 Add-On Package</span>
+                    <span>${formatCurrency(addonPrice)}</span>
+                </div>
+            `;
+
+            summarySection.style.display = 'block';
+
+            // Check balance
+            if (totalPrice > userBalance) {
+                purchaseBtn.disabled = true;
+                purchaseBtn.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>Saldo Tidak Mencukupi';
+                purchaseBtn.className = 'btn btn-danger btn-lg';
+            } else {
+                purchaseBtn.disabled = false;
+                purchaseBtn.innerHTML = '<i class="fas fa-shopping-cart me-2"></i>Beli Paket Combo';
+                purchaseBtn.className = 'btn btn-success btn-lg';
+            }
+        } else {
+            summarySection.style.display = 'none';
+            purchaseBtn.disabled = true;
+            purchaseBtn.innerHTML = '<i class="fas fa-shopping-cart me-2"></i>Beli Paket Combo';
+            purchaseBtn.className = 'btn btn-success btn-lg';
+        }
+
+        totalPriceElement.textContent = formatCurrency(totalPrice);
+    }
+
+    function formatCurrency(amount) {
+        return 'Rp ' + amount.toLocaleString('id-ID');
+    }
+
+    // Add event listeners
+    mainPackageRadios.forEach(radio => {
+        radio.addEventListener('change', updateSummary);
+    });
+
+    // Form validation
+    document.getElementById('xutPackageForm').addEventListener('submit', function(e) {
+        const selectedMain = document.querySelector('.main-package-radio:checked');
+        const phoneNumber = document.querySelector('input[name="phone_number"]').value;
+
+        if (!selectedMain) {
+            e.preventDefault();
+            alert('Silakan pilih paket utama terlebih dahulu!');
+            return;
+        }
+
+        if (!phoneNumber || phoneNumber.length < 10) {
+            e.preventDefault();
+            alert('Silakan masukkan nomor telepon yang valid!');
+            return;
+        }
+
+        const totalPrice = parseFloat(selectedMain.dataset.price) + parseFloat(selectedMain.dataset.addonPrice || 6000);
+        const confirmation = confirm(`Konfirmasi pembelian paket combo?\nTotal: ${formatCurrency(totalPrice)}\nNomor: ${phoneNumber}`);
+        if (!confirmation) {
+            e.preventDefault();
+        }
+    });
+
+    // Format phone number input
+    document.querySelector('input[name="phone_number"]').addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+});
+</script>
+{% endblock %}

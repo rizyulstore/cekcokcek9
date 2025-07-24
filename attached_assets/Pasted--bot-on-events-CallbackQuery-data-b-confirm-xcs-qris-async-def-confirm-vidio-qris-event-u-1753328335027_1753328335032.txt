@@ -1,0 +1,147 @@
+@bot.on(events.CallbackQuery(data=b'confirm_xcs_qris'))
+async def confirm_vidio_qris(event):
+    user_id = event.sender_id
+    sesi = user_sessions.get(user_id, {})
+    nomor = sesi.get("hp")
+    token = sesi.get("token")
+
+    if not nomor or not token:
+        await event.respond("❌ Nomor atau token tidak ditemukan. Silakan login OTP terlebih dahulu.")
+        return
+
+    role = get_user_role(user_id)
+    harga_jasa = 6000
+    saldo = get_user_balance(user_id)
+
+    if saldo < harga_jasa:
+        await event.edit(
+            f"❌ SALDO TIDAK CUKUP\nHarga jasa: Rp {harga_jasa:,}\nSaldo: Rp {saldo:,}\nSilakan topup saldo dulu.",
+            buttons=[[Button.inline("➕ Topup Saldo", b"topup_saldo")]]
+        )
+        return
+
+    kurangi_saldo(user_id, harga_jasa)
+    await event.respond("⏳ Memproses pembelian paket via QRIS, mohon tunggu...")
+
+    # Panggil API pembelian QRIS
+    async with aiohttp.ClientSession() as session:
+        url = "https://golang-openapi-packagepurchase-xltembakservice.kmsp-store.com/v1"
+        params = {
+            "api_key": API_KEY,
+            "package_code": "c03be70fb3523ac2ac440966d3a5920e",  # ganti sesuai paket
+            "phone": nomor,
+            "access_token": token,
+            "payment_method": "QRIS"
+        }
+        async with session.get(url, params=params) as resp:
+            result = await resp.json()
+
+    if not result.get("status"):
+        tambah_saldo(user_id, harga_jasa)
+        await event.respond(f"❌ Pembelian gagal: {result.get('message', 'Tidak diketahui')}")
+        return
+
+    data = result.get("data", {})
+    trx_id = data.get("trx_id")
+    qris_info = data.get("qris_data", {})
+    qr_code_string = qris_info.get("qr_code", "")
+    expired_unix = qris_info.get("payment_expired_at", 0)
+
+    if not trx_id or not qr_code_string:
+        tambah_saldo(user_id, harga_jasa)
+        await event.respond("❌ Gagal mendapatkan data QRIS.")
+        return
+
+    # Data pendukung lainnya
+    tanggalsekarang = tanggal_pembayaran()
+    jam_wib, jam_wita, jam_wit = waktu_sekarang()
+    ref = f"DOR{int(datetime.now().timestamp())}"
+    user_line = get_user_line(user_id)
+    expired_time = datetime.fromtimestamp(expired_unix).strftime("%H:%M:%S")
+
+    # 🔁 Generate gambar QR
+    qr_img = qrcode.make(qr_code_string)
+    img_buf = BytesIO()
+    qr_img.save(img_buf, format='PNG')
+    img_buf.seek(0)
+
+    # ✅ Upload file dengan nama agar tidak "unnamed"
+    qr_file = await bot.upload_file(img_buf, file_name="qris_xut_iflix.png")
+
+    # Kirim QR ke pengguna
+    await bot.send_file(
+        user_id,
+        file=qr_file,
+        caption=f"""
+╔═════════════════════╗
+║ ✅ SCAN QRIS UNTUK BAYAR KE XL
+╟═════════════════════╝
+║👤 DETAIL PEMBAYARAN:
+║  Nomor      : {sensor_hp(nomor)}
+║  Paket      : XCS 1-8 GB QRIS
+║  Harga      : Rp 25.000
+║  Kadaluarsa : {expired_time} WIB
+╟═════════════════════╝
+║📎 PETUNJUK:
+║  Scan QR menggunakan DANA, OVO,
+║  Gopay, LinkAja, BCA Mobile, dll.
+╚═════════════════════╝
+{trx_id}
+"""
+    )
+
+    # 🔁 Cek status pembayaran berkala
+    async def cek_status_transaksi():
+        for _ in range(20):  # 10 menit (20 x 30 detik)
+            await asyncio.sleep(30)
+            async with aiohttp.ClientSession() as session:
+                check_url = "https://golang-openapi-checktransaction-xltembakservice.kmsp-store.com/v1"
+                params_check = {"api_key": API_KEY, "trx_id": trx_id}
+                async with session.get(check_url, params=params_check) as resp:
+                    status_res = await resp.json()
+
+            if status_res.get("status") and status_res.get("data"):
+                status = status_res["data"].get("status")
+                is_refunded = status_res["data"].get("is_refunded", 0)
+
+                if status == 1 and is_refunded == 0:
+                    simpan_riwayat_dor(
+                        user_id=user_id,
+                        nomor=nomor,
+                        paket="XCS 1-8 GB",
+                        harga=harga_jasa,
+                        ref=ref,
+                        trx_id=trx_id,
+                        tanggal=tanggalsekarang,
+                        waktu=jam_wib
+                    )
+                    increment_all_user_counted_dor()
+                    increment_all_user_counts()
+                    count_dor = get_user_counted_dor(user_id)
+
+                    await bot.send_message(group_id, f"""
+╔═════════════════════╗
+║ ✅  TRANSAKSI DOR SUKSES #{count_dor}         
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna   : {user_line}
+║  Nomor      : {sensor_hp(nomor)}
+║  Paket      : XCS 1–8 GB QRIS
+╟═════════════════════╣
+║🕐 WAKTU:
+║  {tanggalsekarang} — {jam_wib}
+╚═════════════════════╝
+""")
+                    user_sessions.pop(user_id, None)
+                    return
+
+                elif status == 0 or is_refunded == 1:
+                    tambah_saldo(user_id, harga_jasa)
+                    await bot.send_message(user_id, "❌ Pembayaran QRIS gagal atau dibatalkan.\nSaldo jasa sudah dikembalikan.")
+                    user_sessions.pop(user_id, None)
+                    return
+
+        await bot.send_message(user_id, "⚠️ Pembayaran belum terkonfirmasi dalam waktu 10 menit. Silakan ulangi pembelian.")
+        user_sessions.pop(user_id, None)
+
+    asyncio.create_task(cek_status_transaksi())

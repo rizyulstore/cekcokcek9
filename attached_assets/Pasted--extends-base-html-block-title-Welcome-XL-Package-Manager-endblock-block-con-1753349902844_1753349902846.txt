@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - XL Package Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="row justify-content-center text-center mb-5">
+        <div class="col-lg-8">
+            <div class="hero-section py-5">
+                <i class="fas fa-mobile-alt display-1 text-primary mb-3"></i>
+                <h1 class="display-4 mb-3">XL Package Manager</h1>
+                <p class="lead text-muted mb-4">
+                    Manage your XL packages with ease. Purchase data packages, monitor usage, and track your transactions all in one place.
+                </p>
+                {% if not current_user.is_authenticated %}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <a href="{{ url_for('main.register') }}" class="btn btn-primary btn-lg me-md-2">
+                            <i class="fas fa-user-plus me-2"></i>Get Started
+                        </a>
+                        <a href="{{ url_for('main.login') }}" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </a>
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-shopping-cart fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Easy Package Purchase</h5>
+                    <p class="card-text text-muted">
+                        Buy XL data packages instantly with just a few clicks. Support for all popular XL packages.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Transaction History</h5>
+                    <p class="card-text text-muted">
+                        Track all your purchases and monitor your spending with detailed transaction history.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Multiple User Roles</h5>
+                    <p class="card-text text-muted">
+                        Support for members, resellers, and admins with different pricing and access levels.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h4 class="card-title mb-4">Why Choose Our Platform?</h4>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <i class="fas fa-bolt fa-2x mb-2"></i>
+                            <h5>Fast & Reliable</h5>
+                            <p class="mb-0">Instant package activation</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <i class="fas fa-shield-alt fa-2x mb-2"></i>
+                            <h5>Secure</h5>
+                            <p class="mb-0">Protected transactions</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <i class="fas fa-headset fa-2x mb-2"></i>
+                            <h5>24/7 Support</h5>
+                            <p class="mb-0">Always here to help</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Profile Information -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Profile Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Username</label>
+                            <div class="form-control-plaintext">{{ current_user.username }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Email</label>
+                            <div class="form-control-plaintext">{{ current_user.email }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Phone Number</label>
+                            <div class="form-control-plaintext">{{ current_user.phone|phone }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Role</label>
+                            <div class="form-control-plaintext">
+                                <span class="badge bg-{{ 'success' if current_user.role.value == 'admin' else ('info' if current_user.role.value == 'reseller' else 'primary') }}">
+                                    {{ current_user.get_display_role() }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Member Since</label>
+                            <div class="form-control-plaintext">{{ current_user.created_at.strftime('%d %B %Y') }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Status</label>
+                            <div class="form-control-plaintext">
+                                <span class="badge bg-{{ 'success' if current_user.is_active else 'secondary' }}">
+                                    {{ 'Active' if current_user.is_active else 'Inactive' }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- XL Account Connection -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0"><i class="fas fa-mobile-alt me-2"></i>XL Account Connection</h5>
+                </div>
+                <div class="card-body">
+                    {% if current_user.xl_verified %}
+                        <div class="alert alert-success d-flex align-items-center">
+                            <i class="fas fa-check-circle fa-2x me-3"></i>
+                            <div>
+                                <h6 class="mb-1">XL Account Connected</h6>
+                                <p class="mb-0">Phone: {{ current_user.xl_phone|phone }}</p>
+                                <small class="text-muted">
+                                    Connected: {{ current_user.xl_token_time|int|datetime if current_user.xl_token_time else 'Unknown' }}
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-primary" onclick="refreshXLConnection()">
+                                <i class="fas fa-sync me-2"></i>Refresh Connection
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="disconnectXL()">
+                                <i class="fas fa-unlink me-2"></i>Disconnect
+                            </button>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning d-flex align-items-center mb-3">
+                            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                            <div>
+                                <h6 class="mb-1">XL Account Not Connected</h6>
+                                <p class="mb-0">Connect your XL account for better package shooting success rate and access to more features.</p>
+                            </div>
+                        </div>
+                        
+                        <form method="POST" action="{{ url_for('main.xl_login') }}">
+                            {{ form.hidden_tag() }}
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-8">
+                                    {{ form.phone_number.label(class="form-label") }}
+                                    {{ form.phone_number(class="form-control", placeholder="Enter your XL phone number (e.g., 081234567890)") }}
+                                    {% if form.phone_number.errors %}
+                                        <div class="text-danger small">
+                                            {% for error in form.phone_number.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="fas fa-link me-2"></i>Connect XL Account
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Account Stats -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Account Statistics</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">Current Balance</span>
+                        <span class="fs-5 fw-bold text-primary">{{ current_user.balance|currency }}</span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">Total Transactions</span>
+                        <span class="fw-bold">{{ current_user.transactions|length }}</span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">Successful Transactions</span>
+                        <span class="fw-bold text-success">{{ current_user.transactions|selectattr('status', 'equalto', 'success')|list|length }}</span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Total Counted</span>
+                        <span class="fw-bold">{{ current_user.counted }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('main.packages') }}" class="btn btn-primary">
+                            <i class="fas fa-shopping-cart me-2"></i>Buy Package
+                        </a>
+                        <a href="{{ url_for('main.topup') }}" class="btn btn-success">
+                            <i class="fas fa-plus me-2"></i>Top Up Balance
+                        </a>
+                        <a href="{{ url_for('main.history') }}" class="btn btn-info">
+                            <i class="fas fa-history me-2"></i>Transaction History
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshXLConnection() {
+    // You can implement XL connection refresh logic here
+    alert('XL connection refresh functionality will be implemented');
+}
+
+function disconnectXL() {
+    if (confirm('Are you sure you want to disconnect your XL account?')) {
+        // Implement disconnect logic
+        alert('XL disconnect functionality will be implemented');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,368 @@
+# Konfigurasi
+MAIN_PACKAGES = ["PREMIUMXC", "SUPERXC"]
+BONUS_MAPPING = {
+    "PREMIUMXC": "bdb392a7aa12b21851960b7e7d54af2c",
+    "SUPERXC": "XL_XC1PLUS1DISC_PULSA"
+}
+
+paket_data = [
+    ("📦 XUT Premium", "PREMIUMXC"),
+    ("📦 XUT Super", "SUPERXC"),
+    ("📦 XCS ", "bdb392a7aa12b21851960b7e7d54af2c"),
+    ("📦 XC 1+1 GB", "XL_XC1PLUS1DISC_PULSA"),
+]
+
+# Buat mapping code → nama
+NAMA_PAKET_MAP = {code: name for name, code in paket_data}
+
+# Konfigurasi global
+JEDA_PEMBELIAN_PAKET = 20  # Detik
+
+def validasi_paket_combo(selected):
+    main = [p for p in selected if p in MAIN_PACKAGES]
+    bonus = [p for p in selected if p not in MAIN_PACKAGES]
+
+    if len(set(main)) > 1:
+        return False, "⚠️ Tidak boleh memilih Super dan Premium sekaligus."
+
+    if not main and bonus:
+        return False, "⚠️ Tidak bisa membeli Add-On tanpa memilih paket utama (Super/Premium)."
+
+    if main:
+        allowed_bonus = BONUS_MAPPING[main[0]]
+        if set(bonus) != {allowed_bonus}:
+            return False, f"⚠️ {NAMA_PAKET_MAP[main[0]]} hanya bisa dikombinasikan dengan {NAMA_PAKET_MAP.get(allowed_bonus, allowed_bonus)}."
+
+    return True, ""
+
+def harga_addon(code, user_id):
+    if code in BONUS_MAPPING.values():
+        return 6000
+    return 500 if is_reseller(user_id) else 1000
+
+@bot.on(events.CallbackQuery(data=b'menu_xutsp'))
+async def menu_addon_handler(event):
+    user_id = event.sender_id
+    sesi = user_sessions.get(user_id)
+    if not sesi or not sesi.get("hp") or not sesi.get("token"):
+        await event.respond("❌ Silakan login OTP terlebih dahulu.")
+        return
+    user_sessions[user_id] = {
+        "selected_packages": [],
+        "hp": sesi["hp"],
+        "token": sesi["token"]
+    }
+    await show_addon_buttons(event, user_id)
+
+# Menambahkan status pengguna pada bagian menu add-on
+async def show_addon_buttons(event, user_id):
+    selected = user_sessions[user_id].get("selected_packages", [])
+
+    user_status = "Reseller" if is_reseller(user_id) else "Member"
+
+    teks = (
+        "╔════════════════════════╗\n"
+        "     📦 𝗣𝗔𝗞𝗘𝗧  𝗫𝗨𝗧 (XUTS/XUTP)      \n"
+        "╚════════════════════════╝\n\n"
+        
+        f"👤 Status: {user_status}\n"
+    )
+
+    # Tambah daftar paket terpilih
+    if selected:
+        daftar = "\n".join([f"• {NAMA_PAKET_MAP.get(code, code)}" for code in selected])
+        teks += f"\n📝 Paket terpilih:\n{daftar}\n"
+    else:
+        teks += "\n📭 Belum ada paket dipilih.\n"
+
+    teks += "\n🛒 *Pilih Paket Add-On XUT:*"
+
+    # Deskripsi per paket (XUTS dan XUTP)
+    teks += (
+        "\n\n╭── 🟩 𝗫𝗨𝗧 𝗣𝗥𝗘𝗠𝗜𝗨𝗠 ────────╮\n"
+        "│ 💸 Metode: Pulsa • sedid: Rp25.000\n"
+        "╰───────────────────────╯\n"
+        "╭── 🟩 𝗫𝗨𝗧 𝗦𝗨𝗣𝗘𝗥 ──────────╮\n"
+        "│ 💸 Metode: Pulsa • sedia: Rp12.500\n"
+        "╰───────────────────────╯\n"
+        "🧠 **Pastikan Sebelum Tembak:**\n"
+        "➤ Tidak terpacu aplikasi MyXL\n"
+        "➤ Cek *808*5*3# tidak ada XCS\n"
+        "➤ Pulsa cukup (Rp12.500 / Rp25.000)\n"
+        "➤ Tidak semua nomor support\n"
+        "➤ Jika dapat SMS gagal, tunggu ±2 jam\n"
+    )
+
+    buttons, row = [], []  
+    for name, code in paket_data:  
+        label = f"✅ {name}" if code in selected else name  
+        row.append(Button.inline(label, f"addon_toggle_{code}".encode()))  
+        if len(row) == 2:  
+            buttons.append(row)  
+            row = []  
+    if row: buttons.append(row)  
+
+
+    buttons += [  
+        [Button.inline("🛒 [PULSA] XUT Premium", b"addon_beli_premium")],
+        [Button.inline("🛒 [PULSA] XUT Super", b"addon_beli_super")],
+        [Button.inline("🚀 Tembak Paket", b"addon_konfirmasi"),Button.inline("🔁 Reset Paket", b"addon_reset")],
+        [Button.inline("⬅️ Kembali", b"dor")]
+    ]
+
+    await event.edit(teks, buttons=buttons)
+
+
+@bot.on(events.CallbackQuery(data=re.compile(b'^addon_toggle_')))
+async def toggle_addon_handler(event):
+    user_id = event.sender_id
+    code = event.data.decode().replace("addon_toggle_", "")
+    selected = user_sessions[user_id].setdefault("selected_packages", [])
+    simulated = selected.copy()
+    if code in simulated: simulated.remove(code)
+    else: simulated.append(code)
+    valid, msg = validasi_paket_combo(simulated)
+    if not valid:
+        await event.answer(msg, alert=True)
+        return
+    if code in selected:
+        selected.remove(code)
+        await event.answer(f"❌ {NAMA_PAKET_MAP.get(code, code)} dibatalkan", alert=False)
+    else:
+        selected.append(code)
+        await event.answer(f"✅ {NAMA_PAKET_MAP.get(code, code)} ditambahkan", alert=False)
+    await show_addon_buttons(event, user_id)
+
+@bot.on(events.CallbackQuery(data=b'addon_reset'))
+async def reset_addon_handler(event):
+    user_id = event.sender_id
+    user_sessions[user_id]["selected_packages"] = []
+    await event.answer("✅ Paket direset.")
+    await show_addon_buttons(event, user_id)
+
+@bot.on(events.CallbackQuery(data=b'addon_beli_premium'))
+async def beli_premium_handler(event):
+    user_id = event.sender_id
+    user_sessions[user_id]["selected_packages"] = [
+        "PREMIUMXC", BONUS_MAPPING["PREMIUMXC"]
+    ]
+    await event.answer("✅ Premium + XCX  dipilih.")
+    await show_addon_buttons(event, user_id)
+
+@bot.on(events.CallbackQuery(data=b'addon_beli_super'))
+async def beli_super_handler(event):
+    user_id = event.sender_id
+    user_sessions[user_id]["selected_packages"] = [
+        "SUPERXC", BONUS_MAPPING["SUPERXC"]
+    ]
+    await event.answer("✅ Super + XC 1+1 dipilih.")
+    await show_addon_buttons(event, user_id)
+
+@bot.on(events.CallbackQuery(data=b'addon_konfirmasi'))
+async def konfirmasi_addon_handler(event):
+    user_id = event.sender_id
+    sesi = user_sessions.get(user_id, {})
+    selected = sesi.get("selected_packages", [])
+
+    valid, msg = validasi_paket_combo(selected)
+    if not valid:
+        await event.answer(msg, alert=True)
+        return
+
+    if not selected:
+        await event.answer("⚠️ Belum ada paket dipilih.", alert=True)
+        return
+
+    daftar = "\n".join([f"• {NAMA_PAKET_MAP.get(code, code)}" for code in selected])
+
+    # ✅ Menggunakan harga_addon
+    total = sum(harga_addon(code, user_id) for code in selected)
+    saldo = get_user_balance(user_id)
+
+    if saldo <= 0:
+        await event.answer("❌ Saldo kamu 0. Isi saldo dulu sebelum bisa tembak paket.", alert=True)
+        return
+
+    if saldo < total:
+        await event.answer(f"❌ Saldo kamu hanya Rp{saldo:,}. Tidak cukup untuk total paket Rp{total:,}.", alert=True)
+        return
+
+    user_status = "Reseller" if is_reseller(user_id) else "Member"
+
+    await event.edit(
+        f"📦 Kamu akan tembak paket:\n\n{daftar}\n\n👤 Status: {user_status}\n💰 Total potongan saldo: Rp {total:,}\nLanjutkan?",
+        buttons=[
+            [Button.inline("✅ Lanjutkan", b"addon_proses")],
+            [Button.inline("❌ Batal", b"addon_batal")]
+        ]
+    )
+
+@bot.on(events.CallbackQuery(data=b'addon_batal'))
+async def batal_addon_handler(event):
+    user_id = event.sender_id
+    user_sessions[user_id]["selected_packages"] = []
+    await event.delete()
+    await event.edit("❌ Transaksi dibatalkan.")
+
+@bot.on(events.CallbackQuery(data=b'addon_proses'))
+async def proses_addon_handler(event):
+    await event.delete()
+    user_id = event.sender_id
+    sesi = user_sessions.get(user_id, {})
+    selected = sesi.get("selected_packages", [])
+    nomor, token = sesi.get("hp"), sesi.get("token")
+
+    if not selected or not nomor or not token:
+        await bot.send_message(user_id, "❌ Data tidak lengkap.")
+        return
+
+    saldo = get_user_balance(user_id)
+    total_harga = sum(harga_addon(code, user_id) for code in selected)
+    if saldo < total_harga:
+        await bot.send_message(user_id, "❌ Saldo tidak cukup.")
+        return
+
+    def is_successful(code: str, message: str) -> bool:
+        msg = message.lower()
+        if code in ["PREMIUMXC", "SUPERXC"]:
+            return "422" in msg
+        elif code in ["XL_XC1PLUS1DISC_PULSA", "bdb392a7aa12b21851960b7e7d54af2c"]:
+            return (
+                "paket berhasil dibeli" in msg
+                or "berhasil" in msg
+                or "sukses" in msg
+            )
+        return "422" in msg  # default fallback
+
+    user_status = "Reseller" if is_reseller(user_id) else "Member"
+    await bot.send_message(user_id, f"⏳ Memproses {len(selected)} paket...\n👤 Status: {user_status}")
+
+    berhasil, gagal, saldo_terpakai = 0, 0, 0
+    ref_base = f"DOR{int(datetime.now().timestamp())}"
+    jam_wib = waktu_sekarang()[0]
+    tanggal = tanggal_pembayaran()
+    user_line = get_user_line(user_id)
+    url = "https://golang-openapi-packagepurchase-xltembakservice.kmsp-store.com/v1"
+
+    async with aiohttp.ClientSession() as session:
+        for i, code in enumerate(selected, 1):
+            harga = harga_addon(code, user_id)
+            if i > 1:
+                await asyncio.sleep(JEDA_PEMBELIAN_PAKET)
+
+            if saldo < harga:
+                await bot.send_message(user_id, f"❌ Saldo tidak cukup untuk {NAMA_PAKET_MAP.get(code, code)}.")
+                continue
+
+            ref = f"{ref_base}_{i}"
+            trx_id = "-"
+            response_message = "-"
+            success = False
+            attempt = 0
+            max_forced = 5
+            full_code = f"XLUNLITURBO{code}_PULSA" if code in MAIN_PACKAGES else code
+            params = {
+                "api_key": API_KEY,
+                "package_code": full_code,
+                "phone": nomor,
+                "access_token": token,
+                "payment_method": "PULSA"
+            }
+
+            if code in MAIN_PACKAGES:
+                while True:
+                    attempt += 1
+                    if attempt > 1:
+                        await asyncio.sleep(35)
+                    async with session.get(url, params=params) as resp:
+                        try:
+                            hasil = await resp.json()
+                        except Exception as e:
+                            await bot.send_message(user_id, f"❌ Gagal parsing JSON: {e}")
+                            break
+
+                        response_message = hasil.get("message", "-")
+                        trx_id = hasil.get("trx_id", "-")
+
+                    if is_successful(code, response_message):
+                        success = True
+                        break
+                    elif attempt < max_forced:
+                        await asyncio.sleep(200)
+            else:
+                async with session.get(url, params=params) as resp:
+                    try:
+                        hasil = await resp.json()
+                    except Exception as e:
+                        await bot.send_message(user_id, f"❌ Gagal parsing JSON: {e}")
+                        continue
+
+                    response_message = hasil.get("message", "-")
+                    trx_id = hasil.get("trx_id", "-")
+                    if is_successful(code, response_message):
+                        success = True
+
+            respon_singkat = extract_status_code(response_message)
+
+            if success:
+                kurangi_saldo(user_id, harga)
+                saldo_terpakai += harga
+                berhasil += 1
+                simpan_riwayat_dor(user_id, nomor, code, harga, ref, trx_id, tanggal, jam_wib)
+                increment_all_user_counted_dor()
+                increment_all_user_counts()
+                count_dor = get_user_counted_dor(user_id)
+
+                user_msg = f"✅ Paket {NAMA_PAKET_MAP.get(code, code)} sukses."
+                await bot.send_message(user_id, user_msg)
+
+                await bot.send_message(group_id, f"""
+╔═════════════════════╗
+║ ✅  TRANSAKSI DOR SUKSES #{count_dor}      
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna : {user_line}
+║  Nomor    : {sensor_hp(nomor)}
+║  Paket    : {NAMA_PAKET_MAP.get(code, code)}
+╟═════════════════════╣
+║🕐 WAKTU TRANSAKSI:
+║  {tanggal} — {jam_wib}
+╚═════════════════════╝
+""")
+                await bot.send_message(group_id_kedua, f"""
+╔═════════════════════╗
+║ ✅  TRANSAKSI DOR SUKSES #{count_dor}      
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna : {user_line}
+║  Paket    : {NAMA_PAKET_MAP.get(code, code)}
+╟═════════════════════╣
+║🕐 WAKTU TRANSAKSI:
+║  {tanggal} — {jam_wib} 
+╟═════════════════════╣
+║📩 RESPON:
+║  {respon_singkat}
+╚═════════════════════╝
+`{nomor}`
+""")
+            else:
+                gagal += 1
+                await bot.send_message(user_id, f"❌ Paket {NAMA_PAKET_MAP.get(code, code)} gagal: {respon_singkat}")
+                await bot.send_message(group_id_kedua, f"""
+╔═════════════════════╗
+║ ❌  TRANSAKSI DOR GAGAL           
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna : {user_line}
+║  Paket    : {code}
+╟═════════════════════╣
+║🕐 WAKTU TRANSAKSI:
+║  {tanggal} — {jam_wib} 
+╚═════════════════════╝
+`{nomor}`
+""")
+                if code in MAIN_PACKAGES:
+                    break
+
+    await bot.send_message(user_id, f"📦 Sukses: {berhasil}, Gagal: {gagal}, 💸 Potongan akhir: Rp {saldo_terpakai:,}")
+    user_sessions.pop(user_id, None)

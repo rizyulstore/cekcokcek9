@@ -1,0 +1,343 @@
+@bot.on(events.CallbackQuery(data=b'menu_addon'))
+async def menu_tembak(event):
+    user_id = event.sender_id
+    sesi = user_sessions.get(user_id)
+    if not sesi or not sesi.get("hp") or not sesi.get("token"):
+        await event.respond("❌ Nomor atau token tidak ditemukan. Silakan login OTP terlebih dahulu.")
+        return
+
+    user_sessions[user_id] = {
+        "selected_packages": [],
+        "hp": sesi["hp"],
+        "token": sesi["token"]
+    }
+    await show_paket_buttons(event, user_id)
+
+# Tampilkan menu pilihan
+async def show_paket_buttons(event, user_id):
+    teks = ""
+    selected = user_sessions[user_id].get("selected_packages", [])
+
+    paket_data = [
+        ("📦 Premium", "PREMIUMXC"),
+        ("📦 Super", "SUPERXC"),
+        ("📦 Standard", "STANDARDXC"),
+        ("📦 Basic", "BASICXC"),
+        ("📦 Netflix", "NETFLIXXC"),
+        ("📦 Viu", "VIU"),
+        ("📦 Youtube", "YOUTUBEXC"),
+        ("📦 TikTok", "TIKTOK"),
+        ("📦 Joox", "JOOXXC"),
+    ]
+
+    if selected:
+        daftar = "\n".join(
+            [f"• {name}" for name, code in paket_data if code in selected]
+        )
+        teks += f"\n📝 Paket terpilih:\n{daftar}\n"
+    else:
+        teks += "\n📭 Belum ada paket dipilih.\n"
+
+    teks += (
+        "\n📌 **Panduan Penting:**\n"
+        "➤ Tanpa saldo Dana & pulsa\n"
+        "➤ Tidak ada Xtra Combo kecuali Flex\n"
+        "➤ Cek via *808#\n"
+        "➤ Pulsa < Rp20.000\n"
+        "➤ Setelah SMS gagal ➜ lanjut tembak XCS 8 GB\n"
+        "➤ Tunggu ±1 jam agar AddOn masuk\n"
+        "➤ Potong saldo bot:\n"
+        "  - Rp500/paket (reseller)\n"
+        "  - Rp1000/paket (member)\n"
+    )
+
+    # Tombol inline
+    buttons = []
+    row = []
+    for name, code in paket_data:
+        label = f"✅ {name}" if code in selected else f"{name}"
+        row.append(Button.inline(label, f"toggle_{code}".encode()))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    buttons.append([Button.inline("🛒 Beli Semua Paket", b"beli_semua_paket")])
+    buttons.append([
+        Button.inline("🚀 Tembak Paket", b"konfirmasi_paket"),
+        Button.inline("🔁 Reset Paket", b"reset_paket")
+    ])
+    buttons.append([Button.inline("⬅️ Kembali", b"menu_xcs")])
+
+    await event.edit(teks, buttons=buttons)
+    
+# Mapping nama kode paket ke nama bersih yang ditampilkan ke user
+PAKET_NAMA_BERSIH = {
+    "PREMIUMXC": "PREMIUM",
+    "SUPERXC": "SUPER",
+    "STANDARDXC": "STANDARD",
+    "BASICXC": "BASIC",
+    "NETFLIXXC": "NETFLIX",
+    "VIU": "VIU",
+    "YOUTUBEXC": "YOUTUBE",
+    "TIKTOK": "TIKTOK",
+    "JOOXXC": "JOOX"
+}
+
+def format_nama_paket(code: str) -> str:
+    """Format nama paket dari kode ke nama bersih"""
+    return PAKET_NAMA_BERSIH.get(code.strip(), code.strip())
+
+# Toggle pilih paket
+@bot.on(events.CallbackQuery(data=re.compile(b'^toggle_')))
+async def toggle_paket(event):
+    user_id = event.sender_id
+    code = event.data.decode().split("_", 1)[1]
+    selected = user_sessions.setdefault(user_id, {}).setdefault("selected_packages", [])
+    if code in selected:
+        selected.remove(code)
+        await event.answer(f"❌ {code} dibatalkan", alert=False)
+    else:
+        selected.append(code)
+        await event.answer(f"✅ {code} ditambahkan", alert=False)
+    await show_paket_buttons(event, user_id)
+
+# Reset pilihan
+@bot.on(events.CallbackQuery(data=b'reset_paket'))
+async def reset_paket(event):
+    user_id = event.sender_id
+    if user_id in user_sessions:
+        user_sessions[user_id]["selected_packages"] = []
+    await show_paket_buttons(event, user_id)
+    await event.answer("✅ Paket direset.")
+
+# Pilih semua paket
+@bot.on(events.CallbackQuery(data=b'beli_semua_paket'))
+async def beli_semua_paket(event):
+    user_id = event.sender_id
+    if user_id not in user_sessions:
+        await event.answer("⚠️ Sesi tidak ditemukan.", alert=True)
+        return
+
+    # Daftar kode paket
+    semua_kode = [
+        "PREMIUMXC", "SUPERXC", "STANDARDXC", "BASICXC", 
+        "NETFLIXXC", "VIU", "YOUTUBEXC", "TIKTOK", "JOOXXC"
+    ]
+
+    # Set semua kode ke selected_packages
+    user_sessions[user_id]["selected_packages"] = semua_kode.copy()
+    await event.answer("✅ Semua paket telah dipilih.", alert=False)
+    await show_paket_buttons(event, user_id)
+
+# Konfirmasi
+@bot.on(events.CallbackQuery(data=b'konfirmasi_paket'))
+async def konfirmasi_paket(event):
+    user_id = event.sender_id
+    sesi = user_sessions.get(user_id, {})
+    selected = sesi.get("selected_packages", [])
+
+    if not selected:
+        await event.answer("⚠️ Belum ada paket yang dipilih.", alert=True)
+        return
+
+    daftar = "\n".join([f"• {format_nama_paket(code)}" for code in selected])
+    
+    # Menentukan harga berdasarkan status reseller atau member
+    if is_reseller(user_id):  # Menggunakan fungsi is_reseller
+        harga_per_paket = 500  # Harga untuk reseller
+    else:
+        harga_per_paket = 1000  # Harga untuk member
+
+    total = len(selected) * harga_per_paket
+    saldo = get_user_balance(user_id)
+
+    if saldo <= 0:
+        await event.answer("❌ Saldo kamu 0. Isi saldo dulu sebelum bisa tembak paket.", alert=True)
+        return
+
+    if saldo < total:
+        await event.answer(f"❌ Saldo kamu hanya Rp{saldo:,}. Tidak cukup untuk total paket Rp{total:,}.", alert=True)
+        return
+
+    await event.edit(
+        f"💬 Kamu akan menembak paket berikut:\n\n{daftar}\n\n💰 Total potongan saldo: Rp {total:,}\n\nLanjutkan transaksi?",
+        buttons=[
+            [
+                Button.inline("✅ Lanjutkan", b"proses_paket"),
+                Button.inline("❌ Batal", b"batal_paket")
+            ]
+        ]
+    )
+
+
+# Batal manual
+@bot.on(events.CallbackQuery(data=b'batal_paket'))
+async def batal_paket(event):
+    user_id = event.sender_id
+    user_sessions[user_id]["selected_packages"] = []
+    await event.delete()
+    await event.edit("❌ Transaksi dibatalkan.")
+
+JEDA_PEMBELIAN_PAKET = 20  # Detik jeda antar pembelian paket
+
+import re
+
+def extract_status_code(msg):
+    match = re.search(r"\b(4\d{2}|5\d{2})\b", msg)
+    return match.group(1) if match else msg
+    
+@bot.on(events.CallbackQuery(data=b'proses_paket'))
+async def proses_paket(event):
+    await event.delete()
+    user_id = event.sender_id
+    sesi = user_sessions.get(user_id, {})
+    selected = sesi.get("selected_packages", [])
+    nomor = sesi.get("hp")
+    token = sesi.get("token")
+
+    if is_reseller(user_id):
+        harga_per_paket = 500
+    else:
+        harga_per_paket = 1000
+
+    if not selected:
+        await event.answer("Tidak ada paket yang diproses.", alert=True)
+        return
+    if not nomor or not token:
+        await event.respond("Token atau nomor tidak ditemukan.")
+        return
+
+    saldo = get_user_balance(user_id)
+    await event.respond(f"Memproses {len(selected)} paket... saldo hanya dipotong jika proses sudah selesai (paket pending).")
+
+    berhasil, gagal = 0, 0
+    gagal_list = []
+    saldo_terpakai = 0
+
+    tanggalsekarang = tanggal_pembayaran()
+    jam_wib, jam_wita, jam_wit = waktu_sekarang()
+    ref_base = f"DOR{int(datetime.now().timestamp())}"
+    user_line = get_user_line(user_id)
+    special_codes = ["PREMIUMXC", "SUPERXC", "STANDARDXC", "BASICXC", "YOUTUBEXC", "TIKTOK"]
+    url = "https://golang-openapi-packagepurchase-xltembakservice.kmsp-store.com/v1"
+
+    async with aiohttp.ClientSession() as session:
+        for i, code in enumerate(selected, 1):
+            if i > 1:
+                await asyncio.sleep(JEDA_PEMBELIAN_PAKET)
+
+            ref = f"{ref_base}_{i}"
+            trx_id = "-"
+            response_message = "-"
+            success = False
+            attempt = 0
+            max_forced = 5
+            current_code = f"XLUNLITURBO{code}_PULSA"
+            nama_paket_bersih = format_nama_paket(code)
+            params = {
+                "api_key": API_KEY,
+                "package_code": current_code,
+                "phone": nomor,
+                "access_token": token,
+                "payment_method": "PULSA"
+            }
+
+            if code in special_codes:
+                while True:
+                    attempt += 1
+                    if attempt > 1:
+                        await asyncio.sleep(35)
+                    async with session.get(url, params=params) as resp:
+                        hasil = await resp.json()
+                        response_message = hasil.get("message", "-")
+                        trx_id = hasil.get("trx_id", "-")
+                    if "422" in response_message:
+                        success = True
+                        break
+                    # Tidak kirim pesan retry ke user
+            else:
+                async with session.get(url, params=params) as resp:
+                    hasil = await resp.json()
+                    response_message = hasil.get("message", "-")
+                    trx_id = hasil.get("trx_id", "-")
+                    if "422" in response_message:
+                        success = True
+
+            respon_singkat = extract_status_code(response_message)
+
+            if success:
+                kurangi_saldo(user_id, harga_per_paket)
+                saldo_terpakai += harga_per_paket
+                berhasil += 1
+                simpan_riwayat_dor(user_id, nomor, code, harga_per_paket, ref, trx_id, tanggalsekarang, jam_wib)
+                increment_all_user_counted_dor()
+                increment_all_user_counts()
+                count_dor = get_user_counted_dor(user_id)
+                user_msg = f"✅ Paket {nama_paket_bersih} sukses di proses."
+                await bot.send_message(user_id, user_msg)
+
+                await bot.send_message(group_id, f"""
+╔═════════════════════╗
+║ ✅  TRANSAKSI DOR SUKSES #{count_dor}      
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna : {user_line}
+║  Nomor    : {sensor_hp(nomor)}
+║  Paket    : {nama_paket_bersih} BYPASS
+╟═════════════════════╣
+║🕐 WAKTU TRANSAKSI:
+║  {tanggalsekarang} — {jam_wib}
+╟═════════════════════╣
+║📩 RESPON:
+║  {respon_singkat}
+╚═════════════════════╝
+""")
+                await bot.send_message(group_id_kedua, f"""
+╔═════════════════════╗
+║ ✅  TRANSAKSI DOR SUKSES #{count_dor}      
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna : {user_line}
+║  Paket    : {nama_paket_bersih} BYPASS
+╟═════════════════════╣
+║🕐 WAKTU TRANSAKSI:
+║  {tanggalsekarang} — {jam_wib} 
+╟═════════════════════╣
+║📩 RESPON:
+║  {respon_singkat}
+╚═════════════════════╝
+`{nomor}`
+""")
+            else:
+                gagal += 1
+                gagal_list.append(f"{nama_paket_bersih} - {response_message}")
+                await bot.send_message(user_id, f"❌ Paket {nama_paket_bersih} gagal setelah {attempt} percobaan.\n📩 Respon: {respon_singkat}")
+                await bot.send_message(group_id_kedua, f"""
+╔═════════════════════╗
+║ ❌  TRANSAKSI DOR GAGAL           
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna : {user_line}
+║  Paket    : {nama_paket_bersih} BYPASS
+╟═════════════════════╣
+║🕐 WAKTU TRANSAKSI:
+║  {tanggalsekarang} — {jam_wib} WIB
+╟═════════════════════╣
+║📩 RESPON:
+║  {respon_singkat}
+╚═════════════════════╝
+`{nomor}`
+""")
+
+    if berhasil == 0:
+        await bot.send_message(user_id, "❌ Semua transaksi gagal. Tidak ada saldo terpotong.")
+    elif gagal > 0:
+        await bot.send_message(user_id, f"✅ {berhasil} paket sukses, ❌ {gagal} gagal.\n💸 Total saldo terpakai: Rp {saldo_terpakai:,}")
+        await bot.send_message(user_id, "Detail Gagal:\n" + "\n".join(f"- {x}" for x in gagal_list))
+    else:
+        await bot.send_message(user_id, f"✅ Semua {berhasil} paket berhasil. 💸 Total saldo terpotong: Rp {saldo_terpakai:,}")
+
+    sesi.pop("auto_select_all", None)
+    user_sessions.pop(user_id, None)

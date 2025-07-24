@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://xl_package_user:${DB_PASSWORD}@db:5432/xl_package_db
+      - SESSION_SECRET=${SESSION_SECRET}
+      - FLASK_ENV=production
+    depends_on:
+      - db
+    volumes:
+      - ./static:/app/static
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    networks:
+      - xl-network
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=xl_package_db
+      - POSTGRES_USER=xl_package_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    restart: unless-stopped
+    networks:
+      - xl-network
+    ports:
+      - "5432:5432"
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - ./static:/var/www/static
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - xl-network
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - xl-network
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  xl-network:
+    driver: bridge

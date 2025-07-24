@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}XUT Packages (XUTP/XUTS){% endblock %}
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-box me-2"></i>📦 𝗣𝗔𝗞𝗘𝗧 𝗫𝗨𝗧 (XUTP/XUTS)</h2>
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center">
+                <span class="text-muted me-3">Your Balance:</span>
+                <span class="fs-5 fw-bold text-primary">{{ current_user.balance|currency }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Status Info -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card bg-light">
+                <div class="card-body text-center">
+                    <h6 class="card-title">👤 Status Pengguna</h6>
+                    <span class="badge bg-{{ 'info' if current_user.is_reseller() else 'primary' }} fs-6">
+                        {{ 'Reseller' if current_user.is_reseller() else 'Member' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-light">
+                <div class="card-body text-center">
+                    <h6 class="card-title">💰 Harga Khusus</h6>
+                    <small class="text-muted">
+                        {{ 'Dapatkan harga reseller untuk semua paket!' if current_user.is_reseller() else 'Upgrade ke reseller untuk harga lebih murah!' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- XL OTP Verification Status -->
+    {% if not current_user.xl_otp_verified %}
+    <div class="alert alert-danger d-flex align-items-center mb-4">
+        <i class="fas fa-shield-alt fa-2x me-3"></i>
+        <div class="flex-grow-1">
+            <h6 class="mb-1">⚠️ Verifikasi OTP XL Diperlukan</h6>
+            <p class="mb-0">
+                Anda harus melakukan verifikasi OTP XL sebelum dapat melakukan package shooting.
+            </p>
+        </div>
+        <a href="{{ url_for('main.xl_otp_request') }}" class="btn btn-danger">
+            <i class="fas fa-mobile-alt"></i> Verifikasi Sekarang
+        </a>
+    </div>
+    {% else %}
+    <div class="alert alert-success d-flex align-items-center mb-4">
+        <i class="fas fa-check-shield fa-2x me-3"></i>
+        <div class="flex-grow-1">
+            <h6 class="mb-1">✅ Verifikasi OTP Berhasil</h6>
+            <p class="mb-0">
+                Nomor XL: <strong>{{ current_user.xl_phone }}</strong> - Siap untuk package shooting!
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+
+    <!-- Package Selection Form -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Pilih Paket Combo</h5>
+        </div>
+        <div class="card-body">
+            <form id="xutPackageForm" method="POST" action="{{ url_for('main.purchase_xut_package') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">📱 Nomor Tujuan</label>
+                        <input type="text" class="form-control" name="phone_number" placeholder="081234567890" required pattern="[0-9]{10,13}"/>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">💳 Metode Pembayaran</label>
+                        <select class="form-select" name="payment_method" required>
+                            <option value="PULSA">📱 PULSA</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Main Packages Section -->
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">🎯 Pilih Paket XUT</h6>
+                    {% if main_packages %}
+                    <div class="row">
+                        {% for package in main_packages %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card package-card h-100 border-2" style="cursor: pointer;">
+                                <div class="card-body">
+                                    <div class="form-check">
+                                        <input class="form-check-input main-package-radio" type="radio" 
+                                               name="main_package" value="{{ package.id }}" 
+                                               id="main_{{ package.id }}" required
+                                               data-package-ewallet="{{ package.package_ewallet }}"
+                                               data-price="{{ package.get_price_for_user(current_user) }}"
+                                               data-addon-price="{{ package.get_addon_price_for_user(current_user) }}">
+                                        <label class="form-check-label w-100" for="main_{{ package.id }}" style="cursor: pointer;">
+                                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                                <h6 class="card-title mb-0">
+                                                    {% if package.package_ewallet == 'PREMIUMXC' %}
+                                                        📦 XUT Premium (XUTP)
+                                                    {% elif package.package_ewallet == 'SUPERXC' %}
+                                                        📦 XUT Super (XUTS)
+                                                    {% else %}
+                                                        📦 {{ package.name }}
+                                                    {% endif %}
+                                                </h6>
+                                                <span class="badge bg-primary">{{ package.code }}</span>
+                                            </div>
+                                            <div class="mb-3">
+                                                {% set user_price = package.get_price_for_user(current_user) %}
+                                                {% if current_user.is_reseller() and package.price_member != package.price_reseller %}
+                                                <span class="text-decoration-line-through text-muted small">{{ package.price_member|currency }}</span><br>
+                                                <span class="fs-6 fw-bold text-success">{{ user_price|currency }}</span>
+                                                {% else %}
+                                                <span class="fs-6 fw-bold text-primary">{{ user_price|currency }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <h6 class="mb-2">⚠️ Paket XUT Tidak Tersedia</h6>
+                        <p class="mb-2">Paket XUTP dan XUTS belum dikonfigurasi dalam sistem. Silakan hubungi admin untuk menambahkan paket:</p>
+                        <ul class="mb-0">
+                            <li><strong>XUTP:</strong> package_ewallet = "PREMIUMXC"</li>
+                            <li><strong>XUTS:</strong> package_ewallet = "SUPERXC"</li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+
+    <!-- Rules and Instructions -->
+    <div class="card border-warning">
+        <div class="card-header bg-warning">
+            <h6 class="mb-0 text-dark"><i class="fas fa-exclamation-triangle me-2"></i>Pastikan Sebelum Tembak</h6>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                <li><strong>Verifikasi OTP:</strong> Wajib sebelum pembelian.</li>            
+                <li><strong>Cek Paket Terlebih dahulu:</strong> Tidak terpacu aplikasi MyXL.</li>
+                <li><strong>Dial Melalui:</strong> *808# pastikan tidak ada paket combo apapun Jika ada silahkan stop langganan. </li>
+                <li><strong>Sedia Pulsa:</strong> XUTS Rp12.500 / XUTP Rp25.000.</li>
+                <li><strong>SMS Masuk:</strong> Jika dapat SMS gagal, tunggu ±2 jam.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+                <!-- Selected Package Summary -->
+                <div class="card bg-light mb-4" id="summarySection" style="display: none;">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">📋 Ringkasan Pesanan</h6>
+                        <div id="selectedPackagesList"></div>
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>Total Harga:</strong>
+                            <strong class="text-primary" id="totalPrice">Rp 0</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-success btn-lg" id="purchaseBtn" disabled>
+                        <i class="fas fa-shopping-cart me-2"></i>Beli Paket Combo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Progress Overlay -->
+    <div id="purchaseOverlay" class="d-none position-fixed top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.8); z-index: 9999;">
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="card text-center p-4">
+                <div class="card-body">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="card-title text-primary">🚀 Sedang Memproses Paket Combo</h5>
+                    <p class="card-text" id="progressText">Memulai pembelian paket utama...</p>
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" id="progressBar" style="width: 10%"></div>
+                    </div>
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>JANGAN REFRESH HALAMAN!</strong><br>
+                        Proses akan berhenti jika halaman di-refresh.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+            </form>
+        </div>
+    </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const mainPackageRadios = document.querySelectorAll('.main-package-radio');
+    const summarySection = document.getElementById('summarySection');
+    const selectedPackagesList = document.getElementById('selectedPackagesList');
+    const totalPriceElement = document.getElementById('totalPrice');
+    const purchaseBtn = document.getElementById('purchaseBtn');
+    const purchaseOverlay = document.getElementById('purchaseOverlay');
+    const progressText = document.getElementById('progressText');
+    const progressBar = document.getElementById('progressBar');
+    const userBalance = {{ current_user.balance }};
+    let purchaseInProgress = false;
+
+    // Make card clickable
+    document.querySelectorAll('.package-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const radio = this.querySelector('.main-package-radio');
+            if (radio) {
+                radio.checked = true;
+                updateSummary();
+            }
+        });
+    });
+
+    function updateSummary() {
+        const selectedMain = document.querySelector('.main-package-radio:checked');
+
+        selectedPackagesList.innerHTML = '';
+        let totalPrice = 0;
+
+        if (selectedMain) {
+            const mainPrice = parseFloat(selectedMain.dataset.price);
+            const addonPrice = parseFloat(selectedMain.dataset.addonPrice || 6000);
+            totalPrice = mainPrice + addonPrice;
+
+            // Get package name
+            const packageLabel = selectedMain.closest('.card-body').querySelector('h6').textContent.trim();
+
+            selectedPackagesList.innerHTML = `
+                <div class="d-flex justify-content-between mb-2">
+                    <span>${packageLabel}</span>
+                    <span>${formatCurrency(mainPrice)}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>🎁 Add-On Package</span>
+                    <span>${formatCurrency(addonPrice)}</span>
+                </div>
+            `;
+
+            summarySection.style.display = 'block';
+
+            // Check balance
+            if (totalPrice > userBalance) {
+                purchaseBtn.disabled = true;
+                purchaseBtn.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>Saldo Tidak Mencukupi';
+                purchaseBtn.className = 'btn btn-danger btn-lg';
+            } else {
+                purchaseBtn.disabled = false;
+                purchaseBtn.innerHTML = '<i class="fas fa-shopping-cart me-2"></i>Beli Paket Combo';
+                purchaseBtn.className = 'btn btn-success btn-lg';
+            }
+        } else {
+            summarySection.style.display = 'none';
+            purchaseBtn.disabled = true;
+            purchaseBtn.innerHTML = '<i class="fas fa-shopping-cart me-2"></i>Beli Paket Combo';
+            purchaseBtn.className = 'btn btn-success btn-lg';
+        }
+
+        totalPriceElement.textContent = formatCurrency(totalPrice);
+    }
+
+    function formatCurrency(amount) {
+        return 'Rp ' + amount.toLocaleString('id-ID');
+    }
+
+    // Add event listeners
+    mainPackageRadios.forEach(radio => {
+        radio.addEventListener('change', updateSummary);
+    });
+
+    // Progress overlay functions
+    function showProgress() {
+        purchaseInProgress = true;
+        purchaseOverlay.classList.remove('d-none');
+        updateProgress(10, 'Memulai pembelian paket utama...');
+    }
+
+    function updateProgress(percent, text) {
+        progressBar.style.width = percent + '%';
+        progressText.textContent = text;
+    }
+
+    function hideProgress() {
+        purchaseInProgress = false;
+        purchaseOverlay.classList.add('d-none');
+    }
+
+    // Prevent page reload during purchase
+    window.addEventListener('beforeunload', function(e) {
+        if (purchaseInProgress) {
+            const message = 'Pembelian paket sedang berlangsung. Jika Anda meninggalkan halaman ini, proses akan dibatalkan.';
+            e.returnValue = message;
+            return message;
+        }
+    });
+
+    // Form validation
+    document.getElementById('xutPackageForm').addEventListener('submit', function(e) {
+        const selectedMain = document.querySelector('.main-package-radio:checked');
+        const phoneNumber = document.querySelector('input[name="phone_number"]').value;
+
+        if (!selectedMain) {
+            e.preventDefault();
+            alert('Silakan pilih paket utama terlebih dahulu!');
+            return;
+        }
+
+        if (!phoneNumber || phoneNumber.length < 10) {
+            e.preventDefault();
+            alert('Silakan masukkan nomor telepon yang valid!');
+            return;
+        }
+
+        if (purchaseInProgress) {
+            e.preventDefault();
+            alert('Pembelian sedang berlangsung. Silakan tunggu...');
+            return;
+        }
+
+        const totalPrice = parseFloat(selectedMain.dataset.price) + parseFloat(selectedMain.dataset.addonPrice || 6000);
+        const confirmation = confirm(`Konfirmasi pembelian paket combo?\nTotal: ${formatCurrency(totalPrice)}\nNomor: ${phoneNumber}`);
+        if (!confirmation) {
+            e.preventDefault();
+        } else {
+            showProgress();
+            // Simulate progress updates - faster for addon processing
+            setTimeout(() => updateProgress(30, 'Mencoba paket utama (percobaan 1)...'), 1000);
+            setTimeout(() => updateProgress(50, 'Menunggu respons 422 untuk paket utama...'), 35000);
+            setTimeout(() => updateProgress(70, 'Paket utama berhasil! Memproses add-on...'), 70000);
+            setTimeout(() => updateProgress(85, 'Memproses paket add-on (tanpa retry)...'), 72000);
+            setTimeout(() => updateProgress(95, 'Menyelesaikan transaksi...'), 75000);
+        }
+    });
+
+    // Format phone number input
+    document.querySelector('input[name="phone_number"]').addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+});
+</script>
+{% endblock %}

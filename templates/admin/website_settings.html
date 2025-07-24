@@ -1,0 +1,142 @@
+
+{% extends "base.html" %}
+{% block title %}Website Settings - Admin{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-cog me-2"></i>Website Settings</h2>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-globe me-2"></i>Site Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.site_title.id }}" class="form-label">Site Title</label>
+                            {{ form.site_title(class="form-control") }}
+                            {% if form.site_title.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.site_title.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.site_description.id }}" class="form-label">Site Description</label>
+                            {{ form.site_description(class="form-control") }}
+                            <div class="form-text">Description shown on the homepage</div>
+                            {% if form.site_description.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.site_description.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.logo_url.id }}" class="form-label">Logo URL</label>
+                            {{ form.logo_url(class="form-control", placeholder="https://example.com/logo.png") }}
+                            <div class="form-text">URL of the logo to display on homepage</div>
+                            {% if form.logo_url.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.logo_url.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.favicon_url.id }}" class="form-label">Favicon URL</label>
+                            {{ form.favicon_url(class="form-control", placeholder="https://example.com/favicon.ico") }}
+                            <div class="form-text">URL of the favicon (browser tab icon)</div>
+                            {% if form.favicon_url.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.favicon_url.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Preview -->
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-eye me-2"></i>Preview</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if settings.logo_url %}
+                        <img src="{{ settings.logo_url }}" alt="Logo" class="img-fluid mb-3" style="max-height: 100px;">
+                    {% else %}
+                        <i class="fas fa-mobile-alt fa-4x text-primary mb-3"></i>
+                    {% endif %}
+                    <h4>{{ settings.site_title }}</h4>
+                    <p class="text-muted">{{ settings.site_description }}</p>
+                </div>
+            </div>
+
+            <!-- Current Settings -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-info-circle me-2"></i>Current Settings</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Title:</strong><br>
+                        <span class="text-muted">{{ settings.site_title }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Logo Status:</strong><br>
+                        <span class="badge bg-{{ 'success' if settings.logo_url else 'warning' }}">
+                            {{ 'Set' if settings.logo_url else 'Default' }}
+                        </span>
+                    </div>
+                    <div>
+                        <strong>Favicon Status:</strong><br>
+                        <span class="badge bg-{{ 'success' if settings.favicon_url else 'warning' }}">
+                            {{ 'Set' if settings.favicon_url else 'Default' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-lightbulb me-2"></i>Tips</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0 small">
+                        <li>Use PNG format for logos with transparent background</li>
+                        <li>Recommended logo size: 100x100px or larger</li>
+                        <li>Use ICO format for favicons (16x16px or 32x32px)</li>
+                        <li>Host images on reliable CDN or image hosting service</li>
+                        <li>Test image URLs before saving</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

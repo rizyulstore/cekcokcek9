@@ -1,0 +1,108 @@
+@bp.route('/packages/purchase', methods=['POST'])
+@login_required
+def purchase_package():
+    form = PurchaseForm()
+    if form.validate_on_submit():
+        # Check if user has completed OTP verification
+        if not current_user.xl_otp_verified:
+            flash('❌ Verifikasi OTP XL diperlukan sebelum melakukan package shooting!', 'error')
+            return redirect(url_for('main.xl_otp_request'))
+
+        package = Package.query.get_or_404(form.package_id.data)
+        price = package.get_price_for_user(current_user)
+        phone_number = format_phone(form.phone_number.data)
+        # Get payment method from form - this will be QRIS, DANA, or PULSA
+        payment_method = request.form.get('payment_method', 'PULSA')
+
+        if current_user.balance < price:
+            flash('Insufficient balance!', 'error')
+            return redirect(url_for('main.packages'))
+
+        if not is_valid_phone(form.phone_number.data):
+            flash('Invalid phone number format!', 'error')
+            return redirect(url_for('main.packages'))
+
+        # Handle QRIS payment method
+        if payment_method == 'QRIS':
+            return redirect(url_for('main.package_qris_payment', 
+                                  package_id=package.id, 
+                                  phone=phone_number))
+
+        # Handle DANA payment method
+        if payment_method == 'DANA':
+            return redirect(url_for('main.package_dana_payment', 
+                                  package_id=package.id, 
+                                  phone=phone_number))
+
+        # Create transaction for non-QRIS payments (DANA, PULSA)
+        transaction = Transaction(
+            user_id=current_user.id,
+            package_id=package.id,
+            phone_number=phone_number,
+            amount=price,
+            status='processing',
+            payment_method=payment_method  # Store payment method in transaction
+        )
+        db.session.add(transaction)
+        db.session.commit()
+
+        # Process XL package purchase for non-QRIS payments
+        try:
+            logging.info(f"Processing purchase for user {current_user.id}, phone: {phone_number}, package: {package.api_code}, payment_method: {payment_method}")
+
+            xl_api = XLAPIManager()
+            success, result = asyncio.run(xl_api.purchase_package(
+                current_user, 
+                phone_number, 
+                package.api_code,
+                payment_method  # Pass the selected payment method to API
+            ))
+
+            if success:
+                transaction.status = 'success'
+                transaction.reference = result.get('reference', '')
+                transaction.trx_id = result.get('trx_id', '')
+                transaction.completed_at = datetime.utcnow()
+                current_user.balance -= price
+                current_user.counted += 1
+                flash(f'Package purchased successfully with {payment_method}!', 'success')
+
+                # Send Telegram notification for success
+                try:
+                    asyncio.create_task(telegram_notifier.send_success_notification(
+                        transaction, current_user, package
+                    ))
+                except Exception as e:
+                    logging.error(f"Failed to send Telegram success notification: {str(e)}")
+            else:
+                transaction.status = 'failed'
+                transaction.error_message = result.get('error', 'Unknown error')
+                flash(f'Purchase failed with {payment_method}: {transaction.error_message}', 'error')
+
+                # Send Telegram notification for failure
+                try:
+                    asyncio.create_task(telegram_notifier.send_failed_notification(
+                        transaction, current_user, package, transaction.error_message
+                    ))
+                except Exception as e:
+                    logging.error(f"Failed to send Telegram failure notification: {str(e)}")
+
+            db.session.commit()
+
+        except Exception as e:
+            logging.error(f"Purchase error: {str(e)}")
+            transaction.status = 'failed'
+            transaction.error_message = str(e)
+
+            # Send Telegram notification for system error
+            try:
+                asyncio.create_task(telegram_notifier.send_failed_notification(
+                    transaction, current_user, package, str(e)
+                ))
+            except Exception as telegram_e:
+                logging.error(f"Failed to send Telegram system error notification: {str(telegram_e)}")
+
+            db.session.commit()
+            flash('Purchase failed due to system error.', 'error')
+
+    return redirect(url_for('main.packages'))

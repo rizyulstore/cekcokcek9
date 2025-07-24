@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}Top Up Balance{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-plus me-2"></i>Top Up Balance</h2>
+                <div class="text-end">
+                    <div class="text-muted">Current Balance</div>
+                    <div class="fs-4 fw-bold text-primary">{{ current_user.balance|currency }}</div>
+                </div>
+            </div>
+
+            <!-- Top Up Form -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0"><i class="fas fa-credit-card me-2"></i>Add Funds to Your Account</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- Amount Selection -->
+                        <div class="mb-4">
+                            <label class="form-label">Select Amount</label>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 amount-btn" data-amount="10000">
+                                        Rp 10.000
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 amount-btn" data-amount="25000">
+                                        Rp 25.000
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 amount-btn" data-amount="50000">
+                                        Rp 50.000
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 amount-btn" data-amount="100000">
+                                        Rp 100.000
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 amount-btn" data-amount="200000">
+                                        Rp 200.000
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 amount-btn" data-amount="500000">
+                                        Rp 500.000
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 amount-btn" data-amount="1000000">
+                                        Rp 1.000.000
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 amount-btn" data-amount="2000000">
+                                        Rp 2.000.000
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-success w-100" onclick="showCustomAmount()">
+                                        <i class="fas fa-edit me-2"></i>Custom
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Custom Amount Input -->
+                            <div id="customAmountDiv" style="display: none;">
+                                {{ form.amount.label(class="form-label") }}
+                                <div class="input-group">
+                                    <span class="input-group-text">Rp</span>
+                                    {{ form.amount(class="form-control", placeholder="Enter custom amount", min="10000", step="1000") }}
+                                </div>
+                                {% if form.amount.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.amount.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-4">
+                            {{ form.payment_method.label(class="form-label") }}
+                            {% for value, label in form.payment_method.choices %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="payment_method" 
+                                           id="payment_{{ value }}" value="{{ value }}" 
+                                           {{ 'checked' if loop.first else '' }}>
+                                    <label class="form-check-label" for="payment_{{ value }}">
+                                        <i class="fas fa-{{ 'qrcode' if value == 'qris' else 'university' }} me-2"></i>
+                                        {{ label }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                            {% if form.payment_method.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.payment_method.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="alert alert-info" id="topupSummary" style="display: none;">
+                            <h6 class="alert-heading">Top-Up Summary</h6>
+                            <div class="row">
+                                <div class="col-6">Amount:</div>
+                                <div class="col-6 fw-bold" id="summaryAmount">-</div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">Payment Method:</div>
+                                <div class="col-6 fw-bold" id="summaryMethod">-</div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">New Balance:</div>
+                                <div class="col-6 fw-bold text-success" id="summaryNewBalance">-</div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-credit-card me-2"></i>Request Top-Up
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Important Notes -->
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Important Notes</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li><strong>QRIS Payment:</strong> Automatic and instant processing</li>
+                        <li><strong>Bank Transfer:</strong> Requires admin approval (1-24 hours)</li>
+                        <li>Minimum top-up amount is Rp 10.000</li>
+                        <li>Maximum QRIS payment is Rp 10.000.000</li>
+                        <li>QRIS timeout: 15 minutes after QR code generation</li>
+                        <li>Keep your payment proof until the top-up is approved</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Recent Top-ups -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Recent Top-ups</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_topups %}
+                        <div class="list-group list-group-flush">
+                            {% for topup in recent_topups %}
+                                <div class="list-group-item border-0 px-0">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="fw-bold">{{ topup.amount|currency }}</div>
+                                            <small class="text-muted">{{ topup.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                            <div>
+                                                <small class="text-muted">{{ topup.payment_method.upper() }}</small>
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-{{ 'success' if topup.status == 'completed' else ('danger' if topup.status == 'failed' else 'warning') }}">
+                                            {{ topup.status.title() }}
+                                        </span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">No top-up history</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Payment Methods Info -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Payment Methods</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-qrcode fa-2x text-primary me-3"></i>
+                            <div>
+                                <div class="fw-bold">QRIS</div>
+                                <small class="text-muted">Instant payment via QR code</small>
+                            </div>
+                        </div>
+                        <small class="text-muted">Scan QR code with your mobile banking app</small>
+                    </div>
+                    
+                    <div class="mb-0">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-university fa-2x text-success me-3"></i>
+                            <div>
+                                <div class="fw-bold">Bank Transfer</div>
+                                <small class="text-muted">Manual bank transfer</small>
+                            </div>
+                        </div>
+                        <small class="text-muted">Transfer to our bank account and wait for approval</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Amount button selection
+document.querySelectorAll('.amount-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const amount = this.dataset.amount;
+        const amountInput = document.querySelector('input[name="amount"]');
+        
+        // Update input value
+        amountInput.value = amount;
+        
+        // Update button states
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Hide custom amount div
+        document.getElementById('customAmountDiv').style.display = 'none';
+        
+        // Update summary
+        updateSummary();
+    });
+});
+
+// Show custom amount input
+function showCustomAmount() {
+    document.getElementById('customAmountDiv').style.display = 'block';
+    document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('input[name="amount"]').focus();
+}
+
+// Update summary when amount or payment method changes
+function updateSummary() {
+    const amountInput = document.querySelector('input[name="amount"]');
+    const paymentMethod = document.querySelector('input[name="payment_method"]:checked');
+    const currentBalance = {{ current_user.balance }};
+    
+    if (amountInput.value && paymentMethod) {
+        const amount = parseFloat(amountInput.value);
+        const newBalance = currentBalance + amount;
+        
+        document.getElementById('summaryAmount').textContent = 'Rp ' + amount.toLocaleString('id-ID');
+        document.getElementById('summaryMethod').textContent = paymentMethod.nextElementSibling.textContent.trim();
+        document.getElementById('summaryNewBalance').textContent = 'Rp ' + newBalance.toLocaleString('id-ID');
+        document.getElementById('topupSummary').style.display = 'block';
+    } else {
+        document.getElementById('topupSummary').style.display = 'none';
+    }
+}
+
+// Listen for changes
+document.querySelector('input[name="amount"]').addEventListener('input', updateSummary);
+document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
+    radio.addEventListener('change', updateSummary);
+});
+
+// Format amount input
+document.querySelector('input[name="amount"]').addEventListener('input', function() {
+    this.value = this.value.replace(/[^0-9]/g, '');
+});
+
+// Initial update
+updateSummary();
+</script>
+{% endblock %}

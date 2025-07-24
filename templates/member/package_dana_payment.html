@@ -1,0 +1,340 @@
+{% extends "base.html" %} {% block title %}DANA Payment - Package Purchase{%
+endblock %} {% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4><i class="fas fa-mobile-alt"></i> Pembayaran DANA</h4>
+                </div>
+                <div class="card-body">
+                    {% if dana_data %}
+                    <div class="text-center mb-4">
+                        <div class="alert alert-warning">
+                            <h5>
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Selesaikan Pembayaran DANA
+                            </h5>
+                        </div>
+                    </div>
+
+                    <!-- Payment Details -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <strong
+                                ><i class="fas fa-info-circle"></i> Detail
+                                Pembayaran</strong
+                            >
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-borderless mb-0">
+                                <tr>
+                                    <td><strong>Nomor:</strong></td>
+                                    <td>{{ phone|censor_phone }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Paket:</strong></td>
+                                    <td>{{ package.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Metode:</strong></td>
+                                    <td>
+                                        <span class="badge bg-info">DANA</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Harga Jasa:</strong></td>
+                                    <td>
+                                        <strong class="text-success"
+                                            >Rp {{ transaction.amount|currency
+                                            }}</strong
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Transaksi ID:</strong></td>
+                                    <td>
+                                        <code>{{ transaction.trx_id }}</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Expired:</strong></td>
+                                    <td>
+                                        {{ dana_data.expired_time_wib or 'N/A'
+                                        }} WIB
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Sisa Waktu:</strong></td>
+                                    <td>
+                                        <span
+                                            id="countdown"
+                                            class="badge bg-warning"
+                                            >10:00</span
+                                        >
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Payment Button -->
+                    <div class="text-center mb-4">
+                        {% if dana_data.get('deeplink_data') and
+                        dana_data.deeplink_data.get('deeplink_url') %}
+                        <button
+                            onclick="window.open('{{ dana_data.deeplink_data.deeplink_url }}', '_blank')"
+                            class="btn btn-success btn-lg"
+                        >
+                            <i class="fas fa-credit-card"></i> Lanjutkan
+                            Pembayaran DANA
+                        </button>
+                        {% elif dana_data.get('have_deeplink') %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> Deeplink
+                            DANA tersedia tapi tidak dapat ditampilkan
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Gunakan aplikasi
+                            DANA untuk menyelesaikan pembayaran
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Instructions -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <strong
+                                ><i class="fas fa-list"></i> Petunjuk
+                                Pembayaran</strong
+                            >
+                        </div>
+                        <div class="card-body">
+                            <ol class="mb-0">
+                                <li>Buka aplikasi DANA di smartphone Anda</li>
+                                <li>
+                                    Klik tombol "Lanjutkan Pembayaran DANA" di
+                                    atas
+                                </li>
+                                <li>Aplikasi DANA akan terbuka otomatis</li>
+                                <li>Masukkan NOMER DANA Lalu Continue</li>
+                                <li>Masukkan PIN DANA untuk konfirmasi</li>
+                                <li>Tunggu notifikasi pembayaran berhasil</li>
+                                <li>
+                                    <strong
+                                        >Setelah pembayaran berhasil, klik
+                                        tombol "Sudah Bayar" di bawah
+                                        ini.</strong
+                                    >
+                                </li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Status Check -->
+                    <div class="text-center" id="payment-status">
+                        <div class="alert alert-info">
+                            <i class="fas fa-clock"></i> Menunggu konfirmasi
+                            pembayaran...
+                        </div>
+                    </div>
+
+                    <!-- Manual Confirmation Button -->
+                    <div class="row mt-3">
+                        <div class="col-12 text-center mb-3">
+                            <button
+                                id="confirm-payment"
+                                class="btn btn-success btn-lg"
+                            >
+                                <i class="fas fa-check me-2"></i>Sudah Bayar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row">
+                        <div class="col-6">
+                            <a
+                                href="{{ url_for('main.packages') }}"
+                                class="btn btn-secondary w-100"
+                            >
+                                <i class="fas fa-arrow-left"></i> Kembali
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a
+                                href="{{ url_for('main.cancel_package_dana_payment', transaction_id=transaction_id) }}"
+                                class="btn btn-danger w-100"
+                                onclick="return confirm('Yakin ingin membatalkan pembayaran?')"
+                            >
+                                <i class="fas fa-times"></i> Batal
+                            </a>
+                        </div>
+                    </div>
+
+                    {% else %}
+                    <div class="alert alert-danger text-center">
+                        <h5>
+                            <i class="fas fa-exclamation-triangle"></i> Gagal
+                            Membuat Pembayaran DANA
+                        </h5>
+                        <p>Terjadi kesalahan saat membuat pembayaran DANA</p>
+                        <a
+                            href="{{ url_for('main.packages') }}"
+                            class="btn btn-primary"
+                            >Kembali ke Paket</a
+                        >
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div
+    class="modal fade"
+    id="confirmPaymentModal"
+    tabindex="-1"
+    aria-labelledby="confirmPaymentModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmPaymentModalLabel">
+                    Konfirmasi Pembayaran
+                </h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <i
+                        class="fas fa-question-circle fa-3x text-warning mb-3"
+                    ></i>
+                    <h5>Apakah Anda sudah menyelesaikan pembayaran DANA?</h5>
+                    <p class="text-muted">
+                        Pastikan pembayaran sudah berhasil sebelum
+                        mengkonfirmasi.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Belum
+                </button>
+                <button type="button" class="btn btn-success" id="confirm-yes">
+                    Ya, Sudah Bayar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Countdown timer (10 minutes)
+    let timeLeft = 600; // 10 minutes in seconds
+    const countdownElement = document.getElementById("countdown");
+
+    function updateCountdown() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        countdownElement.textContent = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+        if (timeLeft <= 0) {
+            // Time expired, redirect to dashboard
+            document.getElementById("payment-status").innerHTML =
+                '<div class="alert alert-danger"><i class="fas fa-clock"></i> Waktu pembayaran telah habis</div>';
+
+            setTimeout(() => {
+                window.location.href = "{{ url_for('main.dashboard') }}";
+            }, 2000);
+            return;
+        }
+
+        timeLeft--;
+        setTimeout(updateCountdown, 1000);
+    }
+
+    // Start countdown
+    updateCountdown();
+
+    // Payment confirmation functionality
+    document
+        .getElementById("confirm-payment")
+        .addEventListener("click", function () {
+            const modal = new bootstrap.Modal(
+                document.getElementById("confirmPaymentModal"),
+            );
+            modal.show();
+        });
+
+    document
+        .getElementById("confirm-yes")
+        .addEventListener("click", function () {
+            const button = this;
+            button.disabled = true;
+            button.innerHTML =
+                '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+
+            fetch(
+                `{{ url_for('main.confirm_package_dana_payment', transaction_id=transaction_id) }}`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token() }}",
+                    },
+                },
+            )
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        document.getElementById("payment-status").innerHTML =
+                            '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Pembayaran dikonfirmasi!</div>';
+
+                        // Hide modal
+                        bootstrap.Modal.getInstance(
+                            document.getElementById("confirmPaymentModal"),
+                        ).hide();
+
+                        // Show success message
+                        if (data.message) {
+                            const successAlert = document.createElement("div");
+                            successAlert.className = "alert alert-success mt-3";
+                            successAlert.innerHTML = `<i class="fas fa-check me-2"></i>${data.message}`;
+                            document
+                                .getElementById("payment-status")
+                                .appendChild(successAlert);
+                        }
+
+                        // Redirect after delay
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 2000);
+                    } else {
+                        button.disabled = false;
+                        button.innerHTML = "Ya, Sudah Bayar";
+                        alert("Error: " + (data.error || "Terjadi kesalahan"));
+                    }
+                })
+                .catch((error) => {
+                    console.error("Confirmation failed:", error);
+                    button.disabled = false;
+                    button.innerHTML = "Ya, Sudah Bayar";
+                    alert("Terjadi kesalahan saat konfirmasi");
+                });
+        });
+</script>
+{% endblock %}

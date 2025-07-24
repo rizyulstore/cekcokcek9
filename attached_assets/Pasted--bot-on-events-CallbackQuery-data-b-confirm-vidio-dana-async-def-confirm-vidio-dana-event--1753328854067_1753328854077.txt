@@ -1,0 +1,143 @@
+@bot.on(events.CallbackQuery(data=b'confirm_vidio_dana'))
+async def confirm_vidio_dana(event):
+    user_id = event.sender_id
+    nomor = user_sessions.get(user_id, {}).get("hp")
+    token = user_sessions.get(user_id, {}).get("token")
+
+    if not nomor or not token:
+        await event.respond("❌ Nomor atau token tidak ditemukan. Silakan login OTP terlebih dahulu.")
+        return
+
+    role = get_user_role(user_id)
+    # Harga jasa internal
+    harga_jasa = 100 if role == "admin" else 3500 if role == "reseller" else 5000 
+    
+    saldo = get_user_balance(user_id)
+    if saldo < harga_jasa:
+        await event.edit(
+            f"❌ SALDO TIDAK CUKUP\nHarga jasa: Rp {harga_jasa:,}\nSaldo: Rp {saldo:,}\nSilakan topup saldo dulu.",
+            buttons=[[Button.inline("➕ Topup Saldo", b"topup_saldo")]]
+        )
+        return
+
+    kurangi_saldo(user_id, harga_jasa)
+
+    await event.respond("⏳ Memproses pembelian paket, mohon tunggu...")
+
+    # Proses pembelian paket via API
+    async with aiohttp.ClientSession() as session:
+        url = "https://golang-openapi-packagepurchase-xltembakservice.kmsp-store.com/v1"
+        params = {
+            "api_key": API_KEY,
+            "package_code": "XLUNLITURBOVIDIO_DANA",
+            "phone": nomor,
+            "access_token": token,
+            "payment_method": "DANA"
+        }
+        async with session.get(url, params=params) as resp:
+            result = await resp.json()
+
+    if not result.get("status"):
+        tambah_saldo(user_id, harga_jasa)  # refund saldo
+        await event.respond(f"❌ Pembelian gagal: {result.get('message', 'Tidak diketahui')}")
+        return
+
+    data = result.get("data", {})
+    trx_id = data.get("trx_id")
+    deeplink_url = data.get("deeplink_data", {}).get("deeplink_url")
+
+    if not trx_id or not deeplink_url:
+        tambah_saldo(user_id, harga_jasa)  # refund saldo
+        await event.respond("❌ Gagal mendapatkan info transaksi DANA.")
+        return
+
+    tanggalsekarang = tanggal_pembayaran()
+    jam_wib, jam_wita, jam_wit = waktu_sekarang()
+    ref = f"DOR{int(datetime.now().timestamp())}"
+    user_line = get_user_line(user_id)
+
+    await event.respond(f"""
+╔═════════════════════╗
+║ ⚠️  SELESAIKAN PEMBAYARAN DANA              
+╟═════════════════════╝
+║👤 DETAIL PEMBAYARAN:
+║  Nomor     : {sensor_hp(nomor)}
+║  Paket     : XUT VIDIO
+║  Metode    : DANA Rp25.000
+║  Terpotong : Rp {harga_jasa:,}
+╟═════════════════════╣
+║🕐 WAKTU:
+║  {tanggalsekarang} — {jam_wib}
+╚═════════════════════╝
+{trx_id}
+""",
+        buttons=[[Button.url("💳 Bayar via DANA", deeplink_url)]]
+    )
+
+    # Fungsi cek status transaksi berkala
+    async def cek_status_transaksi():
+        for _ in range(20):  # cek sampai 20x (10 menit @30detik)
+            await asyncio.sleep(30)
+            async with aiohttp.ClientSession() as session:
+                check_url = "https://golang-openapi-checktransaction-xltembakservice.kmsp-store.com/v1"
+                params_check = {"api_key": API_KEY, "trx_id": trx_id}
+                async with session.get(check_url, params=params_check) as resp:
+                    status_res = await resp.json()
+
+            if status_res.get("status") and status_res.get("data"):
+                status = status_res["data"].get("status")
+                is_refunded = status_res["data"].get("is_refunded", 0)
+
+                if status == 1 and is_refunded == 0:
+                    # Simpan ke riwayat DOR
+                    simpan_riwayat_dor(
+                        user_id=user_id,
+                        nomor=nomor,
+                        paket=code,
+                        harga=harga_per_paket,
+                        ref=ref,
+                        trx_id=hasil.get("trx_id", "-"),
+                        tanggal=tanggalsekarang,
+                        waktu=jam_wib
+                    )   
+                    # Berhasil bayar
+                    increment_all_user_counted_dor()
+                    increment_all_user_counts()
+                    count_dor = get_user_counted_dor(user_id)
+                    tunggu_wib, tunggu_wita, tunggu_wit = waktu_sekarang()  # atau waktu plus estimasi
+                    await bot.send_message(group_id, f"""
+╔═════════════════════╗
+║ ✅  TRANSAKSI DOR SUKSES #{count_dor}         
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna   : {user_line}
+║  Nomor      : {sensor_hp(nomor)}
+║  Paket      : XUT VIDIO
+║  Harga Dor  : Rp {harga_jasa:,}
+║  Status     : Menunggu pembayaran 
+║  Metode    : E-Wallet DANA
+╟═════════════════════╣
+║🕐 WAKTU:
+║  {tanggalsekarang} — {jam_wib} 
+╚═════════════════════╝
+""")
+
+                    user_sessions.pop(user_id, None)
+                    return  # selesai
+
+                elif status == 0 or is_refunded == 1:
+                    # Gagal / dibatalkan
+                    tambah_saldo(user_id, harga_jasa)  # refund saldo
+
+                    await bot.send_message(user_id, f"❌ Pembayaran DANA gagal atau dibatalkan.\nSaldo jasa sudah dikembalikan.")
+                    user_sessions.pop(user_id, None)
+                    return
+
+            # status == 2 artinya pending, lanjut cek lagi
+
+        # Jika habis timeout
+        await bot.send_message(user_id, "⚠️ Pembayaran belum terkonfirmasi dalam waktu 10 menit. Silakan cek kembali atau ulangi pembelian.")
+        user_sessions.pop(user_id, None)
+
+    # Jalankan cek status transaksi di background tanpa blocking
+    asyncio.create_task(cek_status_transaksi()) 

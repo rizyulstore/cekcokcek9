@@ -1,0 +1,56 @@
+    async def purchase_package(self, user, phone_number: str, package_code: str, payment_method: str = "PULSA") -> Tuple[bool, Dict[str, Any]]:
+        """Purchase XL package"""
+        try:
+            logging.info(f"Starting package purchase: phone={phone_number}, package={package_code}")
+            # Use user's stored XL token from OTP verification
+            token = user.xl_token if user and user.xl_otp_verified else None
+            if not token:
+                # Fallback to get_valid_token if no stored token
+                token = await self.get_valid_token(phone_number, user)
+                if not token:
+                    return False, {"error": "No valid token available. Please verify OTP first."}
+
+            async with aiohttp.ClientSession() as session:
+                params = {
+                    "api_key": self.api_key,
+                    "phone": phone_number,
+                    "access_token": token,
+                    "package_code": package_code,
+                    "payment_method": "PULSA"
+                }
+
+                logging.info(f"Calling API: {self.base_urls['package_purchase']} with params: {params}")
+                logging.info(f"Using payment method: {payment_method}")
+
+                async with session.get(self.base_urls['package_purchase'], params=params) as resp:
+                    response_text = await resp.text()
+                    logging.info(f"API Response Status: {resp.status}, Body: {response_text}")
+
+                    if resp.status == 200:
+                        try:
+                            data = await resp.json()
+                            logging.info(f"Parsed JSON response: {data}")
+
+                            if data.get("status"):
+                                result = {
+                                    "success": True,
+                                    "reference": data.get("data", {}).get("reference", ""),
+                                    "trx_id": data.get("data", {}).get("trx_id", ""),
+                                    "message": data.get("message", "Success")
+                                }
+                                logging.info(f"Purchase successful: {result}")
+                                return True, result
+                            else:
+                                error_msg = data.get("message", "Purchase failed")
+                                logging.error(f"Purchase failed: {error_msg}")
+                                return False, {"error": error_msg}
+                        except Exception as json_err:
+                            logging.error(f"Failed to parse JSON response: {json_err}")
+                            return False, {"error": f"Invalid response format: {response_text}"}
+                    else:
+                        logging.error(f"HTTP Error {resp.status}: {response_text}")
+                        return False, {"error": f"HTTP Error: {resp.status}"}
+
+        except Exception as e:
+            logging.error(f"Purchase package error: {str(e)}")
+            return False, {"error": str(e)}

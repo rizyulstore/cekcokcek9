@@ -1,0 +1,451 @@
+{% extends "base.html" %} {% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="card-title mb-0">
+                        <i class="fas fa-qrcode me-2"></i>Pembayaran Paket via
+                        QRIS
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Package Info -->
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-box me-2"></i>Detail Paket</h6>
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <strong>Nama Paket:</strong> {{ package.name }}
+                            </div>
+                            <div class="col-sm-6">
+                                <strong>Nomor Tujuan:</strong> {{ phone }}
+                            </div>
+                            <div class="col-sm-6">
+                                <strong>Harga Jasa:</strong> {{
+                                qr_data.formatted_amount }}
+                            </div>
+                            <div class="col-sm-6">
+                                <strong>TRX ID:</strong> {{ qr_data.trx_id }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- QR Code Section -->
+                        <div class="col-md-6 text-center">
+                            <h5 class="mb-3">Scan QR Code</h5>
+                            <div id="qrcode" class="mb-3"></div>
+                            <div class="alert alert-warning">
+                                <strong>Expired:</strong> {{
+                                qr_data.expired_time }} WIB<br />
+                                <strong>Sisa Waktu:</strong>
+                                <span id="countdown">10:00</span>
+                            </div>
+                        </div>
+
+                        <!-- Instructions Section -->
+                        <div class="col-md-6">
+                            <h5 class="mb-3">Cara Pembayaran</h5>
+                            <ol class="list-group list-group-numbered">
+                                {% for instruction in qr_data.instructions %}
+                                <li class="list-group-item">
+                                    {{ instruction }}
+                                </li>
+                                {% endfor %}
+                            </ol>
+
+                            <div class="mt-3">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Penting:</strong> Setelah pembayaran
+                                    berhasil, klik tombol "Sudah Bayar" di bawah
+                                    ini.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Section -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div
+                                id="payment-status"
+                                class="alert alert-warning text-center"
+                            >
+                                <i class="fas fa-clock me-2"></i>
+                                <strong>Status:</strong> Menunggu konfirmasi
+                                pembayaran...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row mt-3">
+                        <div class="col-12 text-center">
+                            <button
+                                id="confirm-payment"
+                                class="btn btn-success btn-lg me-2"
+                            >
+                                <i class="fas fa-check me-2"></i>Sudah Bayar
+                            </button>
+                            <a
+                                href="{{ url_for('main.cancel_package_qris_payment', transaction_id=transaction_id) }}"
+                                class="btn btn-secondary"
+                            >
+                                <i class="fas fa-times me-2"></i>Batal
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Tips -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Tips Pembayaran
+                        QRIS
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <i
+                                    class="fas fa-mobile-alt fa-2x text-primary mb-2"
+                                ></i>
+                                <p>
+                                    <strong>Mobile Banking</strong><br />
+                                    Gunakan aplikasi mobile banking yang
+                                    mendukung QRIS
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <i
+                                    class="fas fa-wallet fa-2x text-success mb-2"
+                                ></i>
+                                <p>
+                                    <strong>E-Wallet</strong><br />
+                                    DANA, OVO, GoPay, LinkAja, ShopeePay
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <i
+                                    class="fas fa-shield-alt fa-2x text-info mb-2"
+                                ></i>
+                                <p>
+                                    <strong>Aman</strong><br />
+                                    Pembayaran dilindungi sistem keamanan bank
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div
+    class="modal fade"
+    id="confirmPaymentModal"
+    tabindex="-1"
+    aria-labelledby="confirmPaymentModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmPaymentModalLabel">
+                    Konfirmasi Pembayaran
+                </h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <i
+                        class="fas fa-question-circle fa-3x text-warning mb-3"
+                    ></i>
+                    <h5>Apakah Anda sudah menyelesaikan pembayaran QRIS?</h5>
+                    <p class="text-muted">
+                        Pastikan pembayaran sudah berhasil sebelum
+                        mengkonfirmasi.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Belum
+                </button>
+                <button type="button" class="btn btn-success" id="confirm-yes">
+                    Ya, Sudah Bayar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Generate QR Code
+    document.addEventListener("DOMContentLoaded", function () {
+        const qrString = "{{ qr_data.qr_string }}";
+        const qrcodeDiv = document.getElementById("qrcode");
+
+        // Using Google Charts API - most reliable method
+        generateGoogleChartsQR();
+
+        function generateGoogleChartsQR() {
+            const qrSize = "250x250";
+            const qrImg = document.createElement("img");
+            qrImg.src = `https://chart.googleapis.com/chart?chs=${qrSize}&cht=qr&chl=${encodeURIComponent(qrString)}`;
+            qrImg.alt = "QRIS QR Code";
+            qrImg.style.maxWidth = "100%";
+            qrImg.style.height = "auto";
+            qrImg.style.border = "2px solid #dee2e6";
+            qrImg.style.borderRadius = "8px";
+            qrImg.style.display = "block";
+            qrImg.style.margin = "0 auto";
+
+            qrImg.onload = function () {
+                console.log("QR Code loaded successfully via Google Charts");
+            };
+
+            qrImg.onerror = function () {
+                console.error(
+                    "Google Charts QR generation failed, trying alternative",
+                );
+                tryAlternativeQR();
+            };
+
+            qrcodeDiv.innerHTML = "";
+            qrcodeDiv.appendChild(qrImg);
+        }
+
+        function tryAlternativeQR() {
+            const qrImg = document.createElement("img");
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrString)}`;
+            qrImg.alt = "QRIS QR Code";
+            qrImg.style.maxWidth = "100%";
+            qrImg.style.height = "auto";
+            qrImg.style.border = "2px solid #dee2e6";
+            qrImg.style.borderRadius = "8px";
+            qrImg.style.display = "block";
+            qrImg.style.margin = "0 auto";
+
+            qrImg.onerror = function () {
+                showQRStringFallback();
+            };
+
+            qrcodeDiv.innerHTML = "";
+            qrcodeDiv.appendChild(qrImg);
+        }
+
+        function showQRStringFallback() {
+            qrcodeDiv.innerHTML = `
+            <div class="alert alert-warning text-center">
+                <h6><i class="fas fa-exclamation-triangle"></i> QR Code Tidak Dapat Ditampilkan</h6>
+                <p>Gunakan aplikasi pemindai QR atau copy string di bawah:</p>
+                <div class="mt-3">
+                    <button class="btn btn-primary btn-sm" onclick="copyQRString()">
+                        <i class="fas fa-copy"></i> Copy QRIS String
+                    </button>
+                </div>
+                <textarea id="qrStringText" class="form-control mt-2" readonly style="height: 80px; font-size: 10px; display: none;">${qrString}</textarea>
+                <button class="btn btn-outline-secondary btn-sm mt-2" onclick="toggleQRString()">
+                    <i class="fas fa-eye"></i> Show/Hide String
+                </button>
+            </div>
+        `;
+        }
+
+        window.copyQRString = function () {
+            const qrString = "{{ qr_data.qr_string }}";
+            navigator.clipboard
+                .writeText(qrString)
+                .then(function () {
+                    alert("QRIS string berhasil dicopy!");
+                })
+                .catch(function () {
+                    document.getElementById("qrStringText").style.display =
+                        "block";
+                    document.getElementById("qrStringText").select();
+                });
+        };
+
+        window.toggleQRString = function () {
+            const textarea = document.getElementById("qrStringText");
+            if (textarea.style.display === "none") {
+                textarea.style.display = "block";
+            } else {
+                textarea.style.display = "none";
+            }
+        };
+    });
+
+    // Countdown timer (10 minutes)
+    let timeLeft = 600; // 10 minutes in seconds
+    const countdownElement = document.getElementById("countdown");
+
+    function updateCountdown() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        countdownElement.textContent = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+        if (timeLeft <= 0) {
+            // Time expired, redirect to dashboard
+            document.getElementById("payment-status").innerHTML =
+                '<div class="alert alert-danger"><i class="fas fa-clock"></i> Waktu pembayaran telah habis</div>';
+
+            setTimeout(() => {
+                window.location.href = "{{ url_for('main.dashboard') }}";
+            }, 2000);
+            return;
+        }
+
+        timeLeft--;
+        setTimeout(updateCountdown, 1000);
+    }
+
+    // Start countdown
+    updateCountdown();
+
+    // Payment confirmation functionality
+    document
+        .getElementById("confirm-payment")
+        .addEventListener("click", function () {
+            const modal = new bootstrap.Modal(
+                document.getElementById("confirmPaymentModal"),
+            );
+            modal.show();
+        });
+
+    document
+        .getElementById("confirm-yes")
+        .addEventListener("click", function () {
+            const button = this;
+            button.disabled = true;
+            button.innerHTML =
+                '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+
+            fetch(
+                `{{ url_for('main.confirm_package_qris_payment', transaction_id=transaction_id) }}`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token() }}",
+                    },
+                },
+            )
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        document.getElementById("payment-status").innerHTML =
+                            '<i class="fas fa-check-circle me-2"></i><strong>Status:</strong> Pembayaran dikonfirmasi!';
+                        document.getElementById("payment-status").className =
+                            "alert alert-success text-center";
+
+                        // Hide modal
+                        bootstrap.Modal.getInstance(
+                            document.getElementById("confirmPaymentModal"),
+                        ).hide();
+
+                        // Show success message
+                        if (data.message) {
+                            const successAlert = document.createElement("div");
+                            successAlert.className = "alert alert-success mt-3";
+                            successAlert.innerHTML = `<i class="fas fa-check me-2"></i>${data.message}`;
+                            document
+                                .getElementById("payment-status")
+                                .parentNode.appendChild(successAlert);
+                        }
+
+                        // Redirect after delay
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 2000);
+                    } else {
+                        button.disabled = false;
+                        button.innerHTML = "Ya, Sudah Bayar";
+                        alert("Error: " + (data.error || "Terjadi kesalahan"));
+                    }
+                })
+                .catch((error) => {
+                    console.error("Confirmation failed:", error);
+                    button.disabled = false;
+                    button.innerHTML = "Ya, Sudah Bayar";
+                    alert("Terjadi kesalahan saat konfirmasi");
+                });
+        });
+</script>
+
+<style>
+    .card {
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+        border-bottom: none;
+    }
+
+    #qrcode canvas {
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+    }
+
+    .list-group-numbered {
+        counter-reset: section;
+    }
+
+    .list-group-numbered .list-group-item {
+        border: 1px solid #dee2e6;
+        margin-bottom: 5px;
+        border-radius: 5px;
+    }
+
+    .list-group-numbered .list-group-item::before {
+        counter-increment: section;
+        content: counter(section);
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--bs-primary);
+        color: white;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .list-group-numbered .list-group-item {
+        padding-left: 40px;
+    }
+
+    @media (max-width: 768px) {
+        #qrcode canvas {
+            width: 200px !important;
+            height: 200px !important;
+        }
+    }
+</style>
+{% endblock %}

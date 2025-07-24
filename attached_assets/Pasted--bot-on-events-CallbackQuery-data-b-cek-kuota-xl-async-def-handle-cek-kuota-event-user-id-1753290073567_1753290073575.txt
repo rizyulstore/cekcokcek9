@@ -1,0 +1,63 @@
+@bot.on(events.CallbackQuery(data=b"cek_kuota_xl"))
+async def handle_cek_kuota(event):
+    user_id = event.sender_id
+    session = get_user_session(user_id)
+    if not session or not session.get("phone"):
+        return await event.respond("❌ Nomor tidak ditemukan. Silakan login OTP terlebih dahulu.")
+
+    nomor = session["phone"]
+    token = await get_token_or_refresh(nomor, user_id)
+    if not token:
+        return
+
+    try:
+        async with aiohttp.ClientSession() as session_http:
+            url_kuota = "https://golang-openapi-quotadetails-xltembakservice.kmsp-store.com/v1"
+            params = {
+                "api_key": API_KEY,
+                "access_token": token
+            }
+
+            async with session_http.get(url_kuota, params=params) as resp:
+                data_kuota = await resp.json()
+                print("[DEBUG] Data Kuota:", data_kuota)
+
+        if not data_kuota.get("status") or data_kuota.get("statusCode") != 200:
+            raise Exception(data_kuota.get("message", "Gagal mengambil data kuota."))
+
+        quotas = data_kuota.get("data", {}).get("quotas", [])
+        if not quotas:
+            raise Exception("Tidak ada kuota aktif ditemukan.")
+
+        from uuid import uuid4
+        paket_aktif_cache[user_id] = []
+
+        hasil = f"<b>📊 Kuota Aktif untuk {nomor}</b>\n\n"
+
+        for q in quotas:
+            nama_paket = q.get("name", "Tanpa Nama")
+            expired = q.get("expired_at", "-")
+            hasil += f"<b>📦 {nama_paket}</b>\n⏳ Berlaku sampai: <code>{expired}</code>\n"
+
+            for b in q.get("benefits", []):
+                hasil += (
+                    f"• 🏷️ {b.get('name','-')}\n"
+                    f"  ├─ 📦 Kuota: <code>{b.get('quota','-')}</code>\n"
+                    f"  └─ 🔋 Sisa : <code>{b.get('remaining_quota','-')}</code>\n"
+                )
+
+            hasil += "\n"
+
+            # Simpan ke cache jika bisa di-unreg
+            enc = q.get("encrypted_package_code")
+            if enc:
+                paket_aktif_cache[user_id].append({
+                    "id": str(uuid4())[:8],
+                    "name": nama_paket,
+                    "encrypted_code": enc
+                })
+
+        await event.respond(hasil, parse_mode='html')
+
+    except Exception as e:
+        await event.respond(f"❌ Gagal mengecek kuota:\n<code>{e}</code>", parse_mode='html')

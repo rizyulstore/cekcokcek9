@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Pengaturan Telegram - Admin{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-paper-plane me-2"></i>Pengaturan Telegram</h2>
+        <form method="POST" action="{{ url_for('main.admin_test_telegram') }}" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-success" {% if not settings.bot_token or not settings.group_id %}disabled{% endif %}>
+                <i class="fas fa-flask me-2"></i>Test Notifikasi
+            </button>
+        </form>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-cog me-2"></i>Konfigurasi Bot</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.bot_token.id }}" class="form-label">Bot Token</label>
+                                {{ form.bot_token(class="form-control") }}
+                                <div class="form-text">Token bot Telegram dari @BotFather</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.group_id.id }}" class="form-label">Group ID</label>
+                                {{ form.group_id(class="form-control") }}
+                                <div class="form-text">ID grup Telegram (dimulai dengan -)</div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.website_name.id }}" class="form-label">Nama Website</label>
+                                {{ form.website_name(class="form-control") }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.website_url.id }}" class="form-label">URL Website</label>
+                                {{ form.website_url(class="form-control") }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.is_enabled(class="form-check-input") }}
+                                <label class="form-check-label" for="{{ form.is_enabled.id }}">
+                                    Aktifkan Notifikasi Telegram
+                                </label>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <h6><i class="fas fa-check-circle text-success me-2"></i>Format Pesan Sukses</h6>
+                        <div class="mb-3">
+                            {{ form.success_message_format(class="form-control font-monospace") }}
+                            <div class="form-text">
+                                Variable yang tersedia: {transaction_count}, {username}, {phone}, {package_name}, {expired_date} (tanggal transaksi), {website_name}, {amount}
+                            </div>
+                        </div>
+
+                        <h6><i class="fas fa-times-circle text-danger me-2"></i>Format Pesan Gagal</h6>
+                        <div class="mb-3">
+                            {{ form.failed_message_format(class="form-control font-monospace") }}
+                            <div class="form-text">
+                                Variable yang tersedia: {transaction_count}, {username}, {phone}, {package_name}, {website_name}, {amount}, {error_message}
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h5><i class="fas fa-wallet text-info me-2"></i>Format Pesan Top-Up</h5>
+
+                        <h6><i class="fas fa-clock text-warning me-2"></i>Format Pesan Top-Up Pending</h6>
+                        <div class="mb-3">
+                            {{ form.topup_pending_message_format(class="form-control font-monospace") }}
+                            <div class="form-text">
+                                Variable yang tersedia: {topup_count}, {username}, {payment_method}, {created_date}, {website_name}, {amount}
+                            </div>
+                        </div>
+
+                        <h6><i class="fas fa-check-circle text-success me-2"></i>Format Pesan Top-Up Berhasil</h6>
+                        <div class="mb-3">
+                            {{ form.topup_success_message_format(class="form-control font-monospace") }}
+                            <div class="form-text">
+                                Variable yang tersedia: {topup_count}, {username}, {payment_method}, {created_date}, {website_name}, {amount}
+                            </div>
+                        </div>
+
+                        <h6><i class="fas fa-times-circle text-danger me-2"></i>Format Pesan Top-Up Gagal</h6>
+                        <div class="mb-3">
+                            {{ form.topup_failed_message_format(class="form-control font-monospace") }}
+                            <div class="form-text">
+                                Variable yang tersedia: {topup_count}, {username}, {payment_method}, {created_date}, {website_name}, {amount}
+                            </div>
+                        </div>
+
+                    <!-- XUT-specific notification formats -->
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Format Notifikasi XUT (XUTP & XUTS)</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                {{ form.xut_success_message_format.label(class="form-label") }}
+                                {{ form.xut_success_message_format(class="form-control") }}
+                                <div class="form-text">Format pesan untuk XUT yang berhasil. Variables: {transaction_count}, {username}, {phone}, {package_name}, {trx_id}, {website_name}, {amount}, {response}</div>
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form.xut_failed_message_format.label(class="form-label") }}
+                                {{ form.xut_failed_message_format(class="form-control") }}
+                                <div class="form-text">Format pesan untuk XUT addon yang gagal. Variables: {transaction_count}, {username}, {phone}, {package_name}, {trx_id}, {website_name}, {addon_name}, {amount}, {error_message}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 form-check mt-4">
+                        {{ form.is_enabled(class="form-check-input") }}
+                        {{ form.is_enabled.label(class="form-check-label") }}
+                    </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Simpan Pengaturan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-info-circle me-2"></i>Panduan Setup</h5>
+                </div>
+                <div class="card-body">
+                    <h6>1. Membuat Bot Telegram</h6>
+                    <ol class="small">
+                        <li>Chat <code>@BotFather</code> di Telegram</li>
+                        <li>Ketik <code>/newbot</code></li>
+                        <li>Ikuti instruksi untuk membuat bot</li>
+                        <li>Salin token yang diberikan</li>
+                    </ol>
+
+                    <h6>2. Mendapatkan Group ID</h6>
+                    <ol class="small">
+                        <li>Tambahkan bot ke grup Telegram</li>
+                        <li>Kirim pesan <code>/start</code> di grup</li>
+                        <li>Gunakan bot <code>@userinfobot</code> untuk mendapatkan Group ID</li>
+                        <li>Atau forward pesan dari grup ke <code>@userinfobot</code></li>
+                    </ol>
+
+                    <h6>3. Status Saat Ini</h6>
+                    <div class="alert alert-{% if settings.bot_token and settings.group_id and settings.is_enabled %}success{% else %}warning{% endif %} alert-sm">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-{% if settings.bot_token and settings.group_id and settings.is_enabled %}check{% else %}exclamation-triangle{% endif %} me-2"></i>
+                            <div>
+                                {% if settings.bot_token and settings.group_id and settings.is_enabled %}
+                                    Telegram aktif dan terkonfigurasi
+                                {% else %}
+                                    Telegram belum dikonfigurasi lengkap
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

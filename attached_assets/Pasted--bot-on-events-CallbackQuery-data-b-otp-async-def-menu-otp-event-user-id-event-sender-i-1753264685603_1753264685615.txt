@@ -1,0 +1,141 @@
+@bot.on(events.CallbackQuery(data=b'otp'))
+async def menu_otp(event):
+    user_id = event.sender_id
+    await event.respond("📱 Masukkan nomor XL kamu (contoh: 62877xxxx):")
+    user_sessions[user_id] = {"step": "awaiting_phone"}
+
+    # Cancel timer lama jika ada
+    if user_id in phone_timers:
+        phone_timers[user_id].cancel()
+
+    # Timer 60 detik tunggu input nomor
+    async def nomor_timeout():
+        await asyncio.sleep(60)
+        if user_sessions.get(user_id, {}).get("step") == "awaiting_phone":
+            user_sessions.pop(user_id, None)
+            try:
+                await event.respond(
+                    "⏰ Waktu input nomor habis!\nKlik **Minta OTP** lagi untuk mengulang.",
+                    buttons=[Button.inline("🔁 Minta OTP", b"otp")]
+                )
+            except:
+                pass
+
+    phone_timers[user_id] = asyncio.create_task(nomor_timeout())
+    
+@bot.on(events.NewMessage)
+async def handle_otp_input(event):
+    user_id = event.sender_id
+    text = event.raw_text.strip()
+
+    if user_id in user_sessions and user_sessions[user_id].get("step") == "awaiting_phone":
+        phone = text
+        if not phone.startswith("628") or len(phone) < 10:
+            await event.respond("❌ Nomor tidak valid. Masukkan nomor yang benar (contoh: 62877xxxx).")
+            return
+
+        user_sessions[user_id]["hp"] = phone
+        user_sessions[user_id]["step"] = "otp_sent"
+
+        if user_id in phone_timers:
+            phone_timers[user_id].cancel()
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                url = "https://golang-openapi-reqotp-xltembakservice.kmsp-store.com/v1"
+                params = {
+                    "api_key": API_KEY,
+                    "phone": phone,
+                    "method": "OTP"
+                }
+                async with session.get(url, params=params) as resp:
+                    data = await resp.json()
+
+                    if data.get("status") is True:
+                        auth_id = data["data"].get("auth_id")
+                        user_sessions[user_id]["step"] = "awaiting_otp"
+                        user_sessions[user_id]["auth_id"] = auth_id
+
+                        await event.respond(
+                            f"✅ OTP sudah dikirim ke nomor {phone}.\nMasukkan kode OTP yang kamu terima:"
+                        )
+
+                        if user_id in otp_timers:
+                            otp_timers[user_id].cancel()
+
+                        async def otp_timeout():
+                            await asyncio.sleep(90)
+                            if user_sessions.get(user_id, {}).get("step") == "awaiting_otp":
+                                user_sessions.pop(user_id, None)
+                                try:
+                                    await event.respond(
+                                        "⏰ Waktu input OTP habis!\nKlik **Minta OTP** lagi untuk mengulang.",
+                                        buttons=[Button.inline("🔁 Minta OTP", b"otp")]
+                                    )
+                                except:
+                                    pass
+
+                        otp_timers[user_id] = asyncio.create_task(otp_timeout())
+                    else:
+                        await event.respond(f"❌ Gagal mengirim OTP: {data.get('message', 'Unknown error')}")
+                        user_sessions.pop(user_id, None)
+
+            except Exception:
+                await event.respond("❌ Terjadi kesalahan saat mengirim OTP. Coba lagi nanti.")
+                user_sessions.pop(user_id, None)
+   
+    
+    
+    elif user_id in user_sessions and user_sessions[user_id].get("step") == "awaiting_otp":
+        otp_code = text
+        phone = user_sessions[user_id]["hp"]
+        auth_id = user_sessions[user_id].get("auth_id")
+
+        if not auth_id:
+            await event.respond("❌ Gagal login dengan OTP: Auth ID Kosong!")
+            return
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                url = "https://golang-openapi-login-xltembakservice.kmsp-store.com/v1"
+                params = {
+                    "api_key": API_KEY,
+                    "phone": phone,
+                    "method": "OTP",
+                    "auth_id": auth_id,
+                    "otp": otp_code
+                }
+                async with session.get(url, params=params) as resp:
+                    data = await resp.json()
+                    if data.get("status") is True:
+                        token = data["data"].get("access_token")
+
+                        save_user_session(user_id, phone, token)
+                        save_token_db(user_id, phone, token)
+
+                        user_sessions[user_id] = {
+                            "step": "otp_verified",
+                            "hp": phone,
+                            "token": token
+                        }
+
+                        if user_id in otp_timers:
+                            otp_timers[user_id].cancel()
+
+                        await event.respond("✅ OTP berhasil diverifikasi! Kamu sekarang bisa menggunakan fitur tembak XL.",
+                            buttons=[[Button.inline("🚀 Mulai Dor", b"dor")]])
+                    else:
+                        await event.respond(f"❌ Gagal login dengan OTP: {data.get('message', 'Unknown error')}")
+            except Exception:
+                await event.respond("❌ Terjadi kesalahan saat login OTP. Silakan coba kembali.")               
+ 
+    
+@bot.on(events.CallbackQuery(data=b'hapus_otp'))
+async def hapus_otp(event):
+    user_id = event.sender_id
+    delete_user_session(user_id)
+    user_sessions.pop(user_id, None)
+    await event.edit("✅ OTP dan sesi berhasil dihapus.\nSilakan verifikasi ulang jika ingin lanjut.", buttons=[
+        [Button.inline("🔑 Minta OTP", b"otp")],
+        [Button.inline("🔙 Kembali", b"tembakxl")]
+    ])

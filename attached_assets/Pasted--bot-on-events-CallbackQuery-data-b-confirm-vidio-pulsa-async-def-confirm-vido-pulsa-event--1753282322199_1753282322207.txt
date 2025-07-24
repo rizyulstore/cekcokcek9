@@ -1,0 +1,91 @@
+@bot.on(events.CallbackQuery(data=b'confirm_vidio_pulsa'))
+async def confirm_vido_pulsa(event):
+    user_id = event.sender_id
+    sesi = user_sessions.get(user_id, {})
+    nomor = sesi.get("hp")
+    token = sesi.get("token")
+
+    if not nomor or not token:
+        await event.respond("❌ Nomor atau token tidak ditemukan. Silakan login OTP terlebih dahulu.")
+        return
+
+    role = get_user_role(user_id)
+    harga_jasa = 100 if role == "admin" else 3500 if role == "reseller" else 5000 
+    saldo = get_user_balance(user_id)
+
+    if saldo < harga_jasa:
+        await event.edit(
+            f"❌ SALDO TIDAK CUKUP\nHarga jasa: Rp {harga_jasa:,}\nSaldo: Rp {saldo:,}\nSilakan topup saldo dulu.",
+            buttons=[[Button.inline("➕ Topup Saldo", b"topup_saldo")]]
+        )
+        return
+
+    # Potong saldo
+    kurangi_saldo(user_id, harga_jasa)
+    await event.respond("⏳ Memproses pembelian paket, mohon tunggu...")
+
+    # Panggil API pulsa
+    async with aiohttp.ClientSession() as session:
+        url = "https://golang-openapi-packagepurchase-xltembakservice.kmsp-store.com/v1"
+        params = {
+            "api_key": API_KEY,
+            "package_code": "XLUNLITURBOVIDIO_PULSA",  # kode paket XCS 
+            "phone": nomor,
+            "access_token": token,
+            "payment_method": "PULSA"
+        }
+        async with session.get(url, params=params) as resp:
+            result = await resp.json()
+
+    # Jika gagal
+    if not result.get("status"):
+        tambah_saldo(user_id, harga_jasa)  # refund saldo
+        await event.respond(f"❌ Pembelian gagal: {result.get('message', 'Tidak diketahui')}")
+        return
+
+    # Jika berhasil
+    hasil = result
+    tanggalsekarang = tanggal_pembayaran()
+    jam_wib, jam_wita, jam_wit = waktu_sekarang()
+    ref = f"DOR{int(datetime.now().timestamp())}"
+    user_line = get_user_line(user_id)
+
+    increment_all_user_counted_dor()
+    increment_all_user_counts()
+    count_dor = get_user_counted_dor(user_id)
+
+    # Simpan ke riwayat DOR
+    try:
+        simpan_riwayat_dor(
+            user_id=user_id,
+            nomor=nomor,
+            paket="XUT VIDIO",
+            harga=harga_jasa,
+            ref=ref,
+            trx_id=hasil.get("trx_id", "-"),
+            tanggal=tanggalsekarang,
+            waktu=jam_wib
+        )
+    except Exception as e:
+        print(f"[ERROR] Gagal simpan riwayat DOR: {e}")
+
+    teks_konfirmasi = f"""
+╔═════════════════════╗
+║ ✅  TRANSAKSI DOR SUKSES #{count_dor}         
+╟═════════════════════╝
+║👤 DETAIL TRANSAKSI:
+║  Pengguna   : {user_line}
+║  Nomor      : {sensor_hp(nomor)}
+║  Paket      : XUT VIDIO 
+║  Harga Dor  : Rp {harga_jasa:,}
+╟═════════════════════╣
+║🕐 WAKTU:
+║  {tanggalsekarang} — {jam_wib}
+╚═════════════════════╝
+"""
+
+    await event.respond(teks_konfirmasi)
+    await bot.send_message(group_id, teks_konfirmasi)
+
+    # Hapus sesi user
+    user_sessions.pop(user_id, None)

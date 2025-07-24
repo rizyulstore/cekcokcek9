@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ website_settings.site_title }}{% endblock %}</title>
+
+    {% if website_settings.favicon_url %}
+    <link rel="icon" type="image/x-icon" href="{{ website_settings.favicon_url }}">
+    {% endif %}
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <i class="fas fa-mobile-alt me-2"></i>{{ website_settings.site_title }}
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                                <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-box me-2"></i>Packages
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ url_for('main.packages') }}">
+                                    <i class="fas fa-list me-2"></i>All Packages
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.multiaddon_packages') }}">
+                                    <i class="fas fa-layer-group me-2"></i>Multi-Addon
+                                </a>
+                            </li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.xut_packages') }}">
+                                    <i class="fas fa-fire me-2"></i>📦 XUT Packages
+                                </a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.quota_check') }}">
+                                <i class="fas fa-chart-pie me-1"></i>Cek Kuota
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.history') }}">
+                                <i class="fas fa-history me-1"></i>History
+                            </a>
+                        </li>
+                        {% if current_user.is_admin() %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-cog me-1"></i>Admin
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{{ url_for('main.admin_packages') }}">
+                                        <i class="fas fa-box me-2"></i>Manage Packages
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('main.admin_xut_packages') }}">
+                                        <i class="fas fa-rocket me-2"></i>Manage XUT Packages
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('main.admin_multiaddon_packages') }}">
+                                        <i class="fas fa-layer-group me-2"></i>Multi-Addon Packages
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('main.admin_members') }}">
+                                        <i class="fas fa-users me-2"></i>Manage Members
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('main.admin_balance') }}">
+                                        <i class="fas fa-wallet me-2"></i>Manage Balance
+                                    </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.admin_transactions') }}">
+                                        <i class="fas fa-list me-2"></i>All Transactions
+                                    </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.admin_telegram_settings') }}">
+                                        <i class="fas fa-paper-plane me-2"></i>Telegram Settings
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('main.admin_website_settings') }}">
+                                        <i class="fas fa-globe me-2"></i>Website Settings
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('main.admin_payment_methods') }}">
+                                        <i class="fas fa-credit-card me-2"></i>Payment Methods
+                                    </a></li>
+                                </ul>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+
+                <ul class="navbar-nav">
+                    <!-- Theme Toggle Button -->
+                    <li class="nav-item">
+                        <button class="btn btn-outline-secondary nav-link border-0" id="themeToggle" title="Toggle Theme">
+                            <i class="fas fa-sun" id="themeIcon"></i>
+                        </button>
+                    </li>
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user me-1"></i>{{ current_user.username }}
+                                <span class="badge bg-primary ms-1">{{ current_user.balance|currency }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('main.profile') }}">
+                                    <i class="fas fa-user me-2"></i>Profile
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.xl_otp_request') }}">
+                                    <i class="fas fa-shield-alt me-2"></i>XL OTP Verification
+                                    {% if not current_user.xl_otp_verified %}
+                                        <span class="badge bg-danger ms-1">Required</span>
+                                    {% else %}
+                                        <span class="badge bg-success ms-1">✓</span>
+                                    {% endif %}
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.topup') }}">
+                                    <i class="fas fa-plus me-2"></i>Top Up
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.logout') }}">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.login') }}">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.register') }}">Register</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-4 mt-auto">
+        <div class="container text-center">
+            <p class="mb-0">&copy; 2025 {{ website_settings.site_title }}. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Theme Switching Script -->
+    <script>
+        // Theme management
+        class ThemeManager {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                // Initialize theme on page load
+                this.setInitialTheme();
+
+                // Setup theme toggle button
+                const toggleBtn = document.getElementById('themeToggle');
+                if (toggleBtn) {
+                    toggleBtn.addEventListener('click', () => this.toggleTheme());
+                }
+
+                // Setup auto theme switching
+                this.setupAutoTheme();
+
+                // Update theme every minute to check time changes
+                setInterval(() => this.checkAutoTheme(), 60000);
+            }
+
+            setInitialTheme() {
+                const savedTheme = localStorage.getItem('theme');
+                const autoTheme = localStorage.getItem('autoTheme') === 'true';
+
+                if (autoTheme) {
+                    this.setAutoTheme();
+                } else if (savedTheme) {
+                    this.setTheme(savedTheme);
+                } else {
+                    // Default to auto theme
+                    localStorage.setItem('autoTheme', 'true');
+                    this.setAutoTheme();
+                }
+            }
+
+            setTheme(theme) {
+                const html = document.documentElement;
+                const icon = document.getElementById('themeIcon');
+
+                html.setAttribute('data-bs-theme', theme);
+                localStorage.setItem('theme', theme);
+                localStorage.setItem('autoTheme', 'false');
+
+                if (icon) {
+                    if (theme === 'dark') {
+                        icon.className = 'fas fa-sun';
+                        document.getElementById('themeToggle').title = 'Switch to Light Mode';
+                    } else {
+                        icon.className = 'fas fa-moon';
+                        document.getElementById('themeToggle').title = 'Switch to Dark Mode';
+                    }
+                }
+
+                // Show theme change notification
+                this.showThemeNotification(theme);
+            }
+
+            setAutoTheme() {
+                const hour = new Date().getHours();
+                const isDaytime = hour >= 6 && hour < 18; // 6 AM to 6 PM is day
+                const theme = isDaytime ? 'light' : 'dark';
+
+                const html = document.documentElement;
+                const icon = document.getElementById('themeIcon');
+
+                html.setAttribute('data-bs-theme', theme);
+                localStorage.setItem('theme', theme);
+                localStorage.setItem('autoTheme', 'true');
+
+                if (icon) {
+                    icon.className = 'fas fa-clock';
+                    document.getElementById('themeToggle').title = 'Auto Theme (Click to switch to manual)';
+                }
+            }
+
+            toggleTheme() {
+                const isAuto = localStorage.getItem('autoTheme') === 'true';
+
+                if (isAuto) {
+                    // Switch from auto to light
+                    this.setTheme('light');
+                } else {
+                    const currentTheme = localStorage.getItem('theme');
+                    if (currentTheme === 'light') {
+                        this.setTheme('dark');
+                    } else {
+                        // Switch back to auto
+                        this.setAutoTheme();
+                    }
+                }
+            }
+
+            setupAutoTheme() {
+                // Check if auto theme should be applied on page load
+                this.checkAutoTheme();
+            }
+
+            checkAutoTheme() {
+                const isAuto = localStorage.getItem('autoTheme') === 'true';
+                if (isAuto) {
+                    const hour = new Date().getHours();
+                    const isDaytime = hour >= 6 && hour < 18;
+                    const newTheme = isDaytime ? 'light' : 'dark';
+                    const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+
+                    if (newTheme !== currentTheme) {
+                        this.setAutoTheme();
+                    }
+                }
+            }
+
+            showThemeNotification(theme) {
+                // Create or update theme notification
+                let notification = document.querySelector('.theme-notification');
+                if (!notification) {
+                    notification = document.createElement('div');
+                    notification.className = 'theme-notification position-fixed top-0 end-0 m-3';
+                    notification.style.zIndex = '9999';
+                    document.body.appendChild(notification);
+                }
+
+                const isAuto = localStorage.getItem('autoTheme') === 'true';
+                const message = isAuto ? 
+                    `Auto theme: ${theme} mode` : 
+                    `Switched to ${theme} mode`;
+
+                notification.innerHTML = `
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        <i class="fas fa-${isAuto ? 'clock' : (theme === 'dark' ? 'moon' : 'sun')} me-2"></i>
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+
+                // Auto dismiss after 3 seconds
+                setTimeout(() => {
+                    const alert = notification.querySelector('.alert');
+                    if (alert) {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }
+                }, 3000);
+            }
+        }
+
+        // Initialize theme manager when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new ThemeManager();
+        });
+    </script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

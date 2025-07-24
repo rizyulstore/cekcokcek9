@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - XL Package Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Notice Banner -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="alert alert-warning border-0 shadow-sm">
+                <h6 class="alert-heading mb-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Pemberitahuan Penting
+                </h6>
+                <div class="small">
+                    1. Nomor yang di-DOR salah / belum unreg Xtra Combo / salah langkah pembelian <b>tidak ada refund</b>!<br>
+                    2. <b>Add on</b> bersifat hoki-hokian (bisa masuk bisa tidak).<br>
+                    3. Paket <b>Unofficial</b>, <i>tidak ada garansi!</i><br>
+                    4. Harga yang Tertera <b>HANYA JASA</b>, <i>pada menu packages.</i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>Welcome back, {{ current_user.username }}!</h2>
+                    <p class="text-muted mb-0">
+                        <span class="badge bg-{{ 'success' if current_user.role.value == 'admin' else ('info' if current_user.role.value == 'reseller' else 'primary') }}">
+                            {{ current_user.get_display_role() }}
+                        </span>
+                    </p>
+                </div>
+                <div class="text-end">
+                    <div class="fs-5 text-muted">Current Balance</div>
+                    <div class="fs-3 fw-bold text-primary">{{ current_user.balance|currency }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted">Total Transactions</div>
+                            <div class="fs-4 fw-bold">{{ total_transactions }}</div>
+                        </div>
+                        <i class="fas fa-shopping-cart fa-2x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted">Successful</div>
+                            <div class="fs-4 fw-bold text-success">{{ success_transactions }}</div>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted">Success Rate</div>
+                            <div class="fs-4 fw-bold">
+                                {% if total_transactions > 0 %}
+                                    {{ "%.1f"|format((success_transactions / total_transactions) * 100) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </div>
+                        </div>
+                        <i class="fas fa-chart-line fa-2x text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted">XL Status</div>
+                            <div class="fs-6">
+                                {% if current_user.xl_verified %}
+                                    <span class="badge bg-success">Connected</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Not Connected</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <i class="fas fa-mobile-alt fa-2x text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-bolt me-2"></i>Quick Actions
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <a href="{{ url_for('main.packages') }}" class="btn btn-primary w-100">
+                                <i class="fas fa-shopping-cart me-2"></i>Buy Package
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('main.topup') }}" class="btn btn-success w-100">
+                                <i class="fas fa-plus me-2"></i>Top Up Balance
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('main.history') }}" class="btn btn-info w-100">
+                                <i class="fas fa-history me-2"></i>View History
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('main.profile') }}" class="btn btn-secondary w-100">
+                                <i class="fas fa-user me-2"></i>My Profile
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions (Personal for Members) -->
+    {% if not current_user.is_admin() %}
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user me-2"></i>My Recent Transactions
+                        </h5>
+                        <a href="{{ url_for('main.history') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_transactions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Package</th>
+                                        <th>Phone</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for transaction in recent_transactions %}
+                                        <tr>
+                                            <td>
+                                                {{ transaction.created_at.strftime('%d/%m/%Y %H:%M') if transaction.created_at else 'N/A' }}
+                                                <small class="text-muted">{{ (transaction.created_at|datetime_wib).split(' ')[1] if transaction.created_at else '' }}</small>
+                                            </td>
+                                            <td>{{ transaction.package.name }}</td>
+                                            <td>{{ transaction.phone_number|phone|censor_phone }}</td>
+                                            <td>{{ transaction.amount|currency }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ 'success' if transaction.status == 'success' else ('danger' if transaction.status == 'failed' else 'warning') }}">
+                                                    {{ transaction.status.title() }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No personal transactions yet</p>
+                            <a href="{{ url_for('main.packages') }}" class="btn btn-primary">
+                                <i class="fas fa-shopping-cart me-2"></i>Buy Your First Package
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- All User Transaction History -->
+    <div class="row">
+        <div class="col">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-clock me-2"></i>{% if current_user.is_admin() %}All User {% else %}All User {% endif %}Transaction History
+                        </h5>
+                        {% if current_user.is_admin() %}
+                        <a href="{{ url_for('main.admin_transactions') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% set display_transactions = recent_transactions if current_user.is_admin() else all_user_transactions %}
+                    {% if display_transactions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>User</th>
+                                        <th>Package</th>
+                                        <th>Phone</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for transaction in display_transactions %}
+                                        <tr>
+                                            <td>
+                                                {{ transaction.created_at.strftime('%d/%m/%Y %H:%M') if transaction.created_at else 'N/A' }}
+                                                <small class="text-muted">{{ (transaction.created_at|datetime_wib).split(' ')[1] if transaction.created_at else '' }}</small>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-user-circle text-muted me-2"></i>
+                                                    <div>
+                                                        <div class="fw-bold">{{ transaction.user.username }}</div>
+                                                        <small class="text-muted">{{ transaction.user.get_display_role() }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>{{ transaction.package.name }}</td>
+                                            <td>{{ transaction.phone_number|phone|censor_phone }}</td>
+                                            <td>{{ transaction.amount|currency }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ 'success' if transaction.status == 'success' else ('danger' if transaction.status == 'failed' else 'warning') }}">
+                                                    {{ transaction.status.title() }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No transactions yet</p>
+                            {% if not current_user.is_admin() %}
+                            <a href="{{ url_for('main.packages') }}" class="btn btn-primary">
+                                <i class="fas fa-shopping-cart me-2"></i>Buy Your First Package
+                            </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

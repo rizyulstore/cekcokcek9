@@ -1,0 +1,451 @@
+{% extends "base.html" %} {% block title %}Manage Packages - Admin{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-box me-2"></i>Manage Packages</h2>
+        <button
+            class="btn btn-primary"
+            data-bs-toggle="modal"
+            data-bs-target="#addPackageModal"
+        >
+            <i class="fas fa-plus me-2"></i>Add New Package
+        </button>
+    </div>
+
+    <!-- Packages Table -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% if packages %}
+            <div class="table-responsive">
+                <table class="table table-hover table-packages">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Code</th>
+                            <th>Member Price</th>
+                            <th>Reseller Price</th>
+                            <th>PULSA Code</th>
+                            <th>E-wallet Code</th>
+                            <th>Payment Methods</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for package in packages %}
+                        <tr>
+                            <td>{{ package.name }}</td>
+                            <td><code>{{ package.code }}</code></td>
+                            <td>{{ package.price_member|currency }}</td>
+                            <td>{{ package.price_reseller|currency }}</td>
+                            <td><code>{{ package.api_code }}</code></td>
+                            <td><code>{{ package.package_ewallet or '-' }}</code></td>
+                            <td>
+                                {% set methods =
+                                package.get_enabled_payment_methods() %} {% for
+                                method in methods %} {% if method == 'PULSA' %}
+                                <span class="badge bg-info me-1"
+                                    ><i class="fas fa-mobile-alt"></i>
+                                    PULSA</span
+                                >
+                                {% elif method == 'DANA' %}
+                                <span class="badge bg-primary me-1"
+                                    ><i class="fas fa-wallet"></i> DANA</span
+                                >
+                                {% elif method == 'QRIS' %}
+                                <span class="badge bg-success me-1"
+                                    ><i class="fas fa-qrcode"></i> QRIS</span
+                                >
+                                {% endif %} {% endfor %}
+                            </td>
+                            <td>
+                                <span
+                                    class="badge bg-{{ 'success' if package.is_active else 'secondary' }}"
+                                >
+                                    {{ 'Active' if package.is_active else
+                                    'Inactive' }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button
+                                        class="btn btn-outline-primary"
+                                        onclick="editPackage({{ package.id }}, '{{ package.name }}', '{{ package.code }}', {{ package.price_member }}, {{ package.price_reseller }}, '{{ package.api_code }}', '{{ package.package_ewallet or '' }}', {{ package.is_active|lower }}, '{{ package.payment_methods or 'PULSA' }}')"
+                                    >
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <a
+                                        href="{{ url_for('main.admin_delete_package', package_id=package.id) }}"
+                                        class="btn btn-outline-danger"
+                                        onclick="return confirm('Are you sure you want to delete this package?')"
+                                    >
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No packages found</h5>
+                <p class="text-muted">Start by adding your first package</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add Package Modal -->
+<div class="modal fade" id="addPackageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Package</h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                ></button>
+            </div>
+            <form
+                method="POST"
+                action="{{ url_for('main.admin_add_package') }}"
+            >
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Package Name</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="name"
+                            required
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Code</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="code"
+                            placeholder="e.g., XCS 8GB, XC 1GB, XUT VIDIO"
+                            required
+                        />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Member Price</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="price_member"
+                                min="0"
+                                step="0.01"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Reseller Price</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="price_reseller"
+                                min="0"
+                                step="0.01"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">API Code (PULSA)</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="api_code"
+                            required
+                        />
+                        <div class="form-text">Package code for PULSA payment</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Package E-Wallet Code</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="package_ewallet"
+                        />
+                        <div class="form-text">Package code for QRIS/DANA payment (optional)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Payment Methods</label>
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                name="payment_methods"
+                                value="PULSA"
+                                id="pulsa_add"
+                                checked
+                            />
+                            <label class="form-check-label" for="pulsa_add">
+                                <i class="fas fa-mobile-alt me-1"></i>PULSA
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                name="payment_methods"
+                                value="DANA"
+                                id="dana_add"
+                            />
+                            <label class="form-check-label" for="dana_add">
+                                <i class="fas fa-wallet me-1"></i>DANA
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                name="payment_methods"
+                                value="QRIS"
+                                id="qris_add"
+                            />
+                            <label class="form-check-label" for="qris_add">
+                                <i class="fas fa-qrcode me-1"></i>QRIS
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input
+                            type="checkbox"
+                            class="form-check-input"
+                            name="is_active"
+                            checked
+                        />
+                        <label class="form-check-label">Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Add Package
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Package Modal -->
+<div class="modal fade" id="editPackageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Package</h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                ></button>
+            </div>
+            <form method="POST" id="editPackageForm">
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Package Name</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="name"
+                            id="edit_name"
+                            required
+                        />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Payment Method Code</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="code"
+                            id="edit_code"
+                            placeholder="e.g., PULSA, QRIS, DANA"
+                            required
+                        />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Member Price</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="price_member"
+                                id="edit_price_member"
+                                min="0"
+                                step="0.01"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Reseller Price</label>
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="price_reseller"
+                                id="edit_price_reseller"
+                                min="0"
+                                step="0.01"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">API Code (PULSA)</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="api_code"
+                            id="edit_api_code"
+                            required
+                        />
+                        <div class="form-text">Package code for PULSA payment</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Package E-Wallet Code</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="package_ewallet"
+                            id="edit_package_ewallet"
+                        />
+                        <div class="form-text">Package code for QRIS/DANA payment (optional)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Payment Methods</label>
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                name="payment_methods"
+                                value="PULSA"
+                                id="pulsa_edit"
+                            />
+                            <label class="form-check-label" for="pulsa_edit">
+                                <i class="fas fa-mobile-alt me-1"></i>PULSA
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                name="payment_methods"
+                                value="DANA"
+                                id="dana_edit"
+                            />
+                            <label class="form-check-label" for="dana_edit">
+                                <i class="fas fa-wallet me-1"></i>DANA
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                name="payment_methods"
+                                value="QRIS"
+                                id="qris_edit"
+                            />
+                            <label class="form-check-label" for="qris_edit">
+                                <i class="fas fa-qrcode me-1"></i>QRIS
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input
+                            type="checkbox"
+                            class="form-check-input"
+                            name="is_active"
+                            id="edit_is_active"
+                        />
+                        <label class="form-check-label">Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Update Package
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+    function editPackage(
+        id,
+        name,
+        code,
+        priceMember,
+        priceReseller,
+        apiCode,
+        packageEwallet,
+        isActive,
+        paymentMethods,
+    ) {
+        document.getElementById("editPackageForm").action =
+            "/admin/packages/edit/" + id;
+        document.getElementById("edit_name").value = name;
+        document.getElementById("edit_code").value = code;
+        document.getElementById("edit_price_member").value = priceMember;
+        document.getElementById("edit_price_reseller").value = priceReseller;
+        document.getElementById("edit_api_code").value = apiCode;
+        document.getElementById("edit_package_ewallet").value = packageEwallet;
+        document.getElementById("edit_is_active").checked = isActive;
+
+        // Reset payment method checkboxes
+        document.getElementById("pulsa_edit").checked = false;
+        document.getElementById("dana_edit").checked = false;
+        document.getElementById("qris_edit").checked = false;
+
+        // Set payment methods based on package configuration
+        if (paymentMethods) {
+            const methods = paymentMethods.split(",");
+            methods.forEach((method) => {
+                const methodTrimmed = method.trim();
+                if (methodTrimmed === "PULSA") {
+                    document.getElementById("pulsa_edit").checked = true;
+                } else if (methodTrimmed === "DANA") {
+                    document.getElementById("dana_edit").checked = true;
+                } else if (methodTrimmed === "QRIS") {
+                    document.getElementById("qris_edit").checked = true;
+                }
+            });
+        }
+
+        new bootstrap.Modal(document.getElementById("editPackageModal")).show();
+    }
+</script>
+{% endblock %}

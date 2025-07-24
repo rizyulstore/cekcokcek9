@@ -1,0 +1,57 @@
+QRIS_BASE_QR_STRING = "00020101021126670016COM.NOBUBANK.WWW01189360050300000879140214528415756549050303UMI51440014ID.CO.QRIS.WWW0215ID20253753827490303UMI5204481253033605802ID5921RIZYULSTORE OK21885606005BOGOR61051611062070703A0163048CCF"  # Ganti dengan base QR string
+def generate_qr_string(amount):
+    qris_base = QRIS_BASE_QR_STRING[:-4].replace("010211", "010212")
+    nominal_str = str(amount)
+    nominal_tag = f"54{len(nominal_str):02d}{nominal_str}"
+    insert_position = qris_base.find("5802ID")
+    if insert_position == -1:
+        raise ValueError("Format QRIS tidak valid, tidak ditemukan tag '5802ID'")
+    qris_with_nominal = qris_base[:insert_position] + nominal_tag + qris_base[insert_position:]
+    checksum = format(calculate_crc16(qris_with_nominal.encode()), '04X')
+    return qris_with_nominal + checksum
+    
+
+
+
+def check_payment(amount):
+    url = 'https://qris.payment.web.id/payment/qris/OK2188560'
+    params = {
+        "username": "rizyul04",
+        "token": "2188560:CTeEXHdL21rKv6OWRaSVUMi8A9oQn57D"
+    }
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            print(f"Error: Status Code {response.status_code}")
+            return None
+
+        data = response.json()
+
+        if data.get("status") == "success":
+            for trx in data.get("data", []):
+                try:
+                    trx_amount = int(trx.get("amount", 0))
+                    if trx_amount == amount and trx.get("type") == "CR":
+                        return {
+                            "status": True,
+                            "issuer_reff": trx.get("issuer_reff", "-"),
+                            "buyer_reff": trx.get("buyer_reff", "-")
+                        }
+                except (ValueError, TypeError):
+                    continue
+            return None
+        else:
+            print(f"Error: Response status not success: {data}")
+            return None
+
+    except requests.exceptions.RequestException as e:
+        print(f"Request Error: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected Error: {e}")
+        return None

@@ -1,0 +1,116 @@
+
+{% extends "base.html" %}
+{% block title %}Payment Methods - Admin{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-credit-card me-2"></i>Payment Method Settings</h2>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-cog me-2"></i>Enable/Disable Payment Methods</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="card border-info">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-mobile-alt fa-3x text-info mb-3"></i>
+                                        <h6>PULSA</h6>
+                                        <div class="form-check">
+                                            {{ form.pulsa_enabled(class="form-check-input") }}
+                                            <label class="form-check-label" for="{{ form.pulsa_enabled.id }}">
+                                                Enable PULSA Payment
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card border-primary">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-wallet fa-3x text-primary mb-3"></i>
+                                        <h6>DANA</h6>
+                                        <div class="form-check">
+                                            {{ form.dana_enabled(class="form-check-input") }}
+                                            <label class="form-check-label" for="{{ form.dana_enabled.id }}">
+                                                Enable DANA Payment
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card border-success">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-qrcode fa-3x text-success mb-3"></i>
+                                        <h6>QRIS</h6>
+                                        <div class="form-check">
+                                            {{ form.qris_enabled(class="form-check-input") }}
+                                            <label class="form-check-label" for="{{ form.qris_enabled.id }}">
+                                                Enable QRIS Payment
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-info-circle me-2"></i>Current Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span><i class="fas fa-mobile-alt me-2"></i>PULSA</span>
+                            <span class="badge bg-{{ 'success' if settings.pulsa_enabled else 'danger' }}">
+                                {{ 'Enabled' if settings.pulsa_enabled else 'Disabled' }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span><i class="fas fa-wallet me-2"></i>DANA</span>
+                            <span class="badge bg-{{ 'success' if settings.dana_enabled else 'danger' }}">
+                                {{ 'Enabled' if settings.dana_enabled else 'Disabled' }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-qrcode me-2"></i>QRIS</span>
+                            <span class="badge bg-{{ 'success' if settings.qris_enabled else 'danger' }}">
+                                {{ 'Enabled' if settings.qris_enabled else 'Disabled' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info alert-sm">
+                        <small>
+                            <i class="fas fa-info-circle me-1"></i>
+                            At least one payment method must be enabled.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

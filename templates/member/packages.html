@@ -1,0 +1,355 @@
+{% extends "base.html" %} {% block title %}Available Packages{% endblock %} {%
+block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-box me-2"></i>Available Packages</h2>
+        <div class="d-flex align-items-center gap-3">
+            <a
+                href="{{ url_for('main.xut_packages') }}"
+                class="btn btn-primary"
+            >
+                <i class="fas fa-fire me-1"></i>📦 XUT Packages
+            </a>
+            {% if current_user.xl_otp_verified %}
+            <a
+                href="{{ url_for('main.quota_check') }}"
+                class="btn btn-outline-primary btn-sm"
+            >
+                <i class="fas fa-chart-pie me-1"></i>Cek Kuota
+            </a>
+            {% endif %}
+            <div class="d-flex align-items-center">
+                <span class="text-muted me-3">Your Balance:</span>
+                <span class="fs-5 fw-bold text-primary"
+                    >{{ current_user.balance|currency }}</span
+                >
+            </div>
+        </div>
+    </div>
+
+    <!-- User Role Info -->
+    {% if current_user.is_reseller() %}
+    <div class="alert alert-info d-flex align-items-center mb-4">
+        <i class="fas fa-store fa-2x me-3"></i>
+        <div>
+            <h6 class="mb-1">Reseller Pricing Active</h6>
+            <p class="mb-0">
+                You're getting special reseller prices on all packages!
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- XL OTP Verification Status -->
+    {% if not current_user.xl_otp_verified %}
+    <div class="alert alert-danger d-flex align-items-center mb-4">
+        <i class="fas fa-shield-alt fa-2x me-3"></i>
+        <div class="flex-grow-1">
+            <h6 class="mb-1">⚠️ Verifikasi OTP XL Diperlukan</h6>
+            <p class="mb-0">
+                Anda harus melakukan verifikasi OTP XL sebelum dapat melakukan
+                package shooting.
+            </p>
+        </div>
+        <a href="{{ url_for('main.xl_otp_request') }}" class="btn btn-danger">
+            <i class="fas fa-mobile-alt"></i> Verifikasi Sekarang
+        </a>
+    </div>
+    {% else %}
+    <div class="alert alert-success d-flex align-items-center mb-4">
+        <i class="fas fa-check-shield fa-2x me-3"></i>
+        <div class="flex-grow-1">
+            <h6 class="mb-1">✅ Verifikasi OTP Berhasil</h6>
+            <p class="mb-0">
+                Nomor XL: <strong>{{ current_user.xl_phone }}</strong> - Siap
+                untuk package shooting!
+            </p>
+        </div>
+        <a
+            href="{{ url_for('main.xl_otp_reset') }}"
+            class="btn btn-outline-secondary btn-sm"
+        >
+            <i class="fas fa-redo"></i> Reset
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Packages Grid -->
+    {% if packages %}
+    <div class="row g-4">
+        {% for package in packages %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm package-card">
+                <div class="card-body">
+                    <div
+                        class="d-flex justify-content-between align-items-start mb-3"
+                    >
+                        <h5 class="card-title mb-0">{{ package.name }}</h5>
+                        <span class="badge bg-primary">{{ package.code }}</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <div
+                            class="d-flex justify-content-between align-items-center"
+                        >
+                            <span class="text-muted">Price:</span>
+                            <div>
+                                {% set user_price =
+                                package.get_price_for_user(current_user) %} {%
+                                if current_user.is_reseller() and
+                                package.price_member != package.price_reseller
+                                %}
+                                <span
+                                    class="text-decoration-line-through text-muted small"
+                                    >{{ package.price_member|currency }}</span
+                                >
+                                <span class="fs-5 fw-bold text-success"
+                                    >{{ user_price|currency }}</span
+                                >
+                                {% else %}
+                                <span class="fs-5 fw-bold text-primary"
+                                    >{{ user_price|currency }}</span
+                                >
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <form
+                        method="POST"
+                        action="{{ url_for('main.purchase_package') }}"
+                        class="purchase-form"
+                    >
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        />
+                        <input
+                            type="hidden"
+                            name="package_id"
+                            value="{{ package.id }}"
+                        />
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                name="phone_number"
+                                placeholder="081234567890"
+                                required
+                                pattern="[0-9]{10,13}"
+                            />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label"
+                                >Pilih Payment Method Yang Ingin
+                                Digunakan</label
+                            >
+                            {% set package_methods =
+                            package.get_enabled_payment_methods() %} {% if
+                            package_methods %}
+                            <div
+                                class="btn-group"
+                                role="group"
+                                aria-label="Payment methods"
+                            >
+                                {% for method in package_methods %} {% if method
+                                == 'PULSA' %}
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="payment_method"
+                                    value="PULSA"
+                                    id="pulsa_{{ package.id }}"
+                                    {%
+                                    if
+                                    loop.first
+                                    %}checked{%
+                                    endif
+                                    %}
+                                />
+                                <label
+                                    class="btn btn-outline-info"
+                                    for="pulsa_{{ package.id }}"
+                                >
+                                    <i class="fas fa-mobile-alt me-1"></i>PULSA
+                                </label>
+                                {% elif method == 'DANA' %}
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="payment_method"
+                                    value="DANA"
+                                    id="dana_{{ package.id }}"
+                                />
+                                <label
+                                    class="btn btn-outline-primary"
+                                    for="dana_{{ package.id }}"
+                                >
+                                    <i class="fas fa-wallet me-1"></i>DANA
+                                </label>
+                                {% elif method == 'QRIS' %}
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="payment_method"
+                                    value="QRIS"
+                                    id="qris_{{ package.id }}"
+                                />
+                                <label
+                                    class="btn btn-outline-success"
+                                    for="qris_{{ package.id }}"
+                                >
+                                    <i class="fas fa-qrcode me-1"></i>QRIS
+                                </label>
+                                {% endif %} {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                No payment methods configured for this package.
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="d-grid">
+                            {% set user_price =
+                            package.get_price_for_user(current_user) %} {% if
+                            current_user.balance >= user_price %}
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-shopping-cart me-2"></i
+                                >Purchase Now
+                            </button>
+                            {% else %}
+                            <button
+                                type="button"
+                                class="btn btn-danger"
+                                disabled
+                            >
+                                <i class="fas fa-exclamation-circle me-2"></i
+                                >Insufficient Balance
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Low Balance Warning -->
+    {% if current_user.balance < 50000 %}
+    <div class="alert alert-warning mt-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div class="flex-grow-1">
+                <h6 class="mb-1">Low Balance Warning</h6>
+                <p class="mb-0">
+                    Your balance is running low. Consider topping up to continue
+                    purchasing packages.
+                </p>
+            </div>
+            <a href="{{ url_for('main.topup') }}" class="btn btn-warning"
+                >Top Up Now</a
+            >
+        </div>
+    </div>
+    {% endif %} {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+        <h5 class="text-muted">No packages available</h5>
+        <p class="text-muted">Please check back later or contact admin.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Purchase Confirmation Modal -->
+<div class="modal fade" id="confirmPurchaseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Purchase</h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                ></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-sm-4"><strong>Package:</strong></div>
+                    <div class="col-sm-8" id="confirm-package"></div>
+                </div>
+                <div class="row">
+                    <div class="col-sm-4"><strong>Phone:</strong></div>
+                    <div class="col-sm-8" id="confirm-phone"></div>
+                </div>
+                <div class="row">
+                    <div class="col-sm-4"><strong>Price:</strong></div>
+                    <div class="col-sm-8" id="confirm-price"></div>
+                </div>
+                <div class="row">
+                    <div class="col-sm-4"><strong>New Balance:</strong></div>
+                    <div class="col-sm-8" id="confirm-balance"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-success"
+                    id="confirmPurchaseBtn"
+                >
+                    <i class="fas fa-check me-2"></i>Confirm Purchase
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+    // Add confirmation for package purchases
+    document.querySelectorAll(".purchase-form").forEach((form) => {
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const packageName =
+                this.closest(".card").querySelector(".card-title").textContent;
+            const phoneNumber = this.querySelector(
+                'input[name="phone_number"]',
+            ).value;
+            const priceText =
+                this.closest(".card").querySelector(".fs-5").textContent;
+
+            // Validate phone number
+            if (!phoneNumber || phoneNumber.length < 10) {
+                alert("Please enter a valid phone number");
+                return;
+            }
+
+            // Show confirmation (simplified)
+            if (
+                confirm(
+                    `Confirm purchase of ${packageName} for ${phoneNumber}?\nPrice: ${priceText}`,
+                )
+            ) {
+                this.submit();
+            }
+        });
+    });
+
+    // Format phone number input
+    document.querySelectorAll('input[name="phone_number"]').forEach((input) => {
+        input.addEventListener("input", function () {
+            this.value = this.value.replace(/[^0-9]/g, "");
+        });
+    });
+</script>
+{% endblock %}

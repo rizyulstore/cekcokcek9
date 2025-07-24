@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction History{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-history me-2"></i>Transaction History</h2>
+        <div class="d-flex gap-2">
+            <select class="form-select" id="statusFilter" style="width: auto;">
+                <option value="">All Status</option>
+                <option value="success">Success</option>
+                <option value="failed">Failed</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+            </select>
+            <button class="btn btn-outline-secondary" onclick="exportHistory()">
+                <i class="fas fa-download me-2"></i>Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted">Total Transactions</div>
+                            <div class="fs-4 fw-bold">{{ transactions.total }}</div>
+                        </div>
+                        <i class="fas fa-receipt fa-2x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted">Successful</div>
+                            <div class="fs-4 fw-bold text-success">
+                                {{ current_user.transactions|selectattr('status', 'equalto', 'success')|list|length }}
+                            </div>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted">Failed</div>
+                            <div class="fs-4 fw-bold text-danger">
+                                {{ current_user.transactions|selectattr('status', 'equalto', 'failed')|list|length }}
+                            </div>
+                        </div>
+                        <i class="fas fa-times-circle fa-2x text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted">Total Spent</div>
+                            <div class="fs-4 fw-bold text-info">
+                                {{ current_user.transactions|selectattr('status', 'equalto', 'success')|sum(attribute='amount')|currency }}
+                            </div>
+                        </div>
+                        <i class="fas fa-money-bill-wave fa-2x text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% if transactions.items %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Package</th>
+                                <th>Phone Number</th>
+                                <th>Amount</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th>Reference</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in transactions.items %}
+                                <tr>
+                                    <td>{{ transaction.created_at.strftime('%d/%m/%Y %H:%M') if transaction.created_at else 'N/A' }}</td>
+                                    <td>
+                                        <div class="fw-bold">{{ transaction.package.name }}</div>
+                                        <small class="text-muted">{{ transaction.package.code }}</small>
+                                    </td>
+                                    <td>{{ transaction.phone_number|phone|censor_phone }}</td>
+                                    <td>{{ transaction.amount|currency }}</td>
+                                    <td>
+                                        {% if transaction.payment_method == 'QRIS' %}
+                                            <span class="badge bg-success"><i class="fas fa-qrcode me-1"></i>QRIS</span>
+                                        {% elif transaction.payment_method == 'DANA' %}
+                                            <span class="badge bg-primary"><i class="fas fa-wallet me-1"></i>DANA</span>
+                                        {% elif transaction.payment_method == 'PULSA' %}
+                                            <span class="badge bg-info"><i class="fas fa-mobile-alt me-1"></i>PULSA</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ transaction.payment_method or 'PULSA' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if transaction.status == 'success' else ('danger' if transaction.status == 'failed' else ('info' if transaction.status == 'processing' else 'warning')) }}">
+                                            {{ transaction.status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if transaction.reference %}
+                                            <code class="small">{{ transaction.reference }}</code>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" 
+                                                    onclick="viewDetails({{ transaction.id }})"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#transactionModal">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            {% if transaction.status == 'success' %}
+                                                <button class="btn btn-outline-success" 
+                                                        onclick="downloadReceipt({{ transaction.id }})">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if transactions.pages > 1 %}
+                    <nav aria-label="Transaction pagination" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if transactions.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('main.history', page=transactions.prev_num) }}">Previous</a>
+                                </li>
+                            {% endif %}
+
+                            {% for page_num in transactions.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num != transactions.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('main.history', page=page_num) }}">{{ page_num }}</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if transactions.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('main.history', page=transactions.next_num) }}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No transactions found</h5>
+                    <p class="text-muted">Your transaction history will appear here once you make your first purchase.</p>
+                    <a href="{{ url_for('main.packages') }}" class="btn btn-primary">
+                        <i class="fas fa-shopping-cart me-2"></i>Buy Your First Package
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Details Modal -->
+<div class="modal fade" id="transactionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Transaction Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="transactionDetails">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="downloadReceiptBtn" style="display: none;">
+                    <i class="fas fa-download me-2"></i>Download Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Filter transactions by status
+document.getElementById('statusFilter').addEventListener('change', function() {
+    const status = this.value;
+    const rows = document.querySelectorAll('tbody tr');
+
+    rows.forEach(row => {
+        if (!status) {
+            row.style.display = '';
+        } else {
+            const statusBadge = row.querySelector('.badge');
+            const rowStatus = statusBadge.textContent.toLowerCase().trim();
+            row.style.display = rowStatus === status ? '' : 'none';
+        }
+    });
+});
+
+// View transaction details
+function viewDetails(transactionId) {
+    const detailsContainer = document.getElementById('transactionDetails');
+
+    // Find transaction row
+    const rows = document.querySelectorAll('tbody tr');
+    let transactionData = null;
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length > 0) {
+            transactionData = {
+                date: cells[0].textContent.trim(),
+                package: cells[1].textContent.trim(),
+                phone: cells[2].textContent.trim(),
+                amount: cells[3].textContent.trim(),
+                payment: cells[4].textContent.trim(),
+                status: cells[5].textContent.trim(),
+                reference: cells[6].textContent.trim()
+            };
+        }
+    });
+
+    if (transactionData) {
+        detailsContainer.innerHTML = `
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Date & Time (WIB)</label>
+                    <div class="form-control-plaintext">${transactionData.date}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Status</label>
+                    <div class="form-control-plaintext">${transactionData.status}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Package</label>
+                    <div class="form-control-plaintext">${transactionData.package}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Phone Number</label>
+                    <div class="form-control-plaintext">${transactionData.phone}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Amount</label>
+                    <div class="form-control-plaintext">${transactionData.amount}</div>
+                </div>
+                 <div class="col-md-6">
+                    <label class="form-label fw-bold">Payment Method</label>
+                    <div class="form-control-plaintext">${transactionData.payment}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Reference</label>
+                    <div class="form-control-plaintext">${transactionData.reference}</div>
+                </div>
+            </div>
+        `;
+
+        // Show download button if successful
+        const downloadBtn = document.getElementById('downloadReceiptBtn');
+        if (transactionData.status.toLowerCase().includes('success')) {
+            downloadBtn.style.display = 'block';
+            downloadBtn.onclick = () => downloadReceipt(transactionId);
+        } else {
+            downloadBtn.style.display = 'none';
+        }
+    }
+}
+
+// Download receipt
+function downloadReceipt(transactionId) {
+    // Implement receipt download logic
+    alert('Receipt download functionality will be implemented');
+}
+
+// Export history
+function exportHistory() {
+    // Implement export logic
+    alert('Export functionality will be implemented');
+}
+</script>
+{% endblock %}
